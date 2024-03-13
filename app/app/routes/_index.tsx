@@ -1,5 +1,5 @@
 import { fromWeb3JsPublicKey } from "@metaplex-foundation/umi-web3js-adapters"
-import { json, type LoaderFunction, type MetaFunction } from "@remix-run/node"
+import { json, type LoaderFunction, type MetaFunction } from "@vercel/remix"
 import { Link, useLoaderData } from "@remix-run/react"
 import { useWallet } from "@solana/wallet-adapter-react"
 import { useEffect, useState } from "react"

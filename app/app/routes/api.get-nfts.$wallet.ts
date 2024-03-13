@@ -1,4 +1,4 @@
-import { LoaderFunction, json } from "@remix-run/node"
+import { LoaderFunction, json } from "@vercel/remix"
 import { getDigitalAssetsForWallet } from "~/helpers/helius.server"
 
 export const loader: LoaderFunction = async ({ request, params }) => {

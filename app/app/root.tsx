@@ -1,7 +1,7 @@
 import { Buffer } from "buffer"
 import stylesheet from "~/tailwind.css"
 
-import type { LinksFunction, MetaFunction } from "@remix-run/node"
+import type { LinksFunction, MetaFunction } from "@vercel/remix"
 import {
   Link,
   Links,
@@ -14,23 +14,15 @@ import {
   useLoaderData,
   useMatches,
 } from "@remix-run/react"
-import { Navbar, NavbarBrand, NavbarContent, NextUIProvider, Spinner } from "@nextui-org/react"
-import { WalletProviders } from "./components/WalletProvider"
+import { Navbar, NavbarBrand, NavbarContent, Spinner } from "@nextui-org/react"
 import walletStyles from "@solana/wallet-adapter-react-ui/styles.css"
-import { RaffleProvider } from "./context/raffle"
-import { WalletMultiButton } from "@solana/wallet-adapter-react-ui"
 import { Toaster } from "react-hot-toast"
 import { XCircleIcon, CheckCircleIcon } from "@heroicons/react/24/outline"
-import { UmiProvider } from "./context/umi"
-import { StakeProvider } from "./context/stake"
 import { PriorityFeesSelector } from "./components/PriorityFeesSelector"
-import { PriorityFeesProvider } from "./context/priority-fees"
 import PoweredBy from "./components/PoweredBy"
-import { DigitalAssetsProvider } from "./context/digital-assets"
 import { Providers } from "./components/Providers"
 import { WalletButton } from "./components/WalletButton"
 import { useEffect } from "react"
-// import PoweredBy from "~/../public/powered-by.svg"
 
 export const links: LinksFunction = () => [
   { rel: "stylesheet", href: stylesheet },

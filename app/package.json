@@ -32,6 +32,7 @@
     "@solana/wallet-adapter-wallets": "^0.19.26",
     "@solana/web3.js": "^1.90.0",
     "@switchboard-xyz/solana-randomness-service": "^1.0.0",
+    "@vercel/remix": "^2.8.1",
     "axios": "^1.6.7",
     "bs58": "^5.0.0",
     "dayjs": "^1.11.10",

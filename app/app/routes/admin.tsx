@@ -16,7 +16,7 @@ import {
 } from "@metaplex-foundation/umi"
 import { fromWeb3JsInstruction } from "@metaplex-foundation/umi-web3js-adapters"
 import { Button, Card, CardBody, Input, Spinner } from "@nextui-org/react"
-import { LoaderFunction, json } from "@remix-run/node"
+import { LoaderFunction, json } from "@vercel/remix"
 import { isRouteErrorResponse, useLoaderData, useRouteError } from "@remix-run/react"
 import { useWallet } from "@solana/wallet-adapter-react"
 import base58 from "bs58"

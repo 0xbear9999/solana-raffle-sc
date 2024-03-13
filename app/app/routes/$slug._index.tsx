@@ -1,6 +1,5 @@
 import * as anchor from "@coral-xyz/anchor"
 import { DigitalAsset, fetchDigitalAsset } from "@metaplex-foundation/mpl-token-metadata"
-import { PublicKey, publicKey } from "@metaplex-foundation/umi"
 import { fromWeb3JsPublicKey } from "@metaplex-foundation/umi-web3js-adapters"
 import {
   Badge,
@@ -15,12 +14,12 @@ import {
   Tab,
   Tabs,
 } from "@nextui-org/react"
-import { LoaderFunction, json } from "@remix-run/node"
+import { LoaderFunction, json } from "@vercel/remix"
 import { Link, useLoaderData, useOutletContext } from "@remix-run/react"
 import { useWallet } from "@solana/wallet-adapter-react"
 import axios from "axios"
 import { DAS } from "helius-sdk"
-import { groupBy, partition } from "lodash"
+import { groupBy } from "lodash"
 import { useEffect, useRef, useState } from "react"
 import { Countdown } from "~/components/Countdown"
 import { RaffleStateChip } from "~/components/RaffleStateChip"
@@ -28,18 +27,12 @@ import { useDigitalAssets } from "~/context/digital-assets"
 import { usePriorityFees } from "~/context/priority-fees"
 import { useRaffle } from "~/context/raffle"
 import { useUmi } from "~/context/umi"
-import { entrantsFromUri, getEntrantsArray, getRafflerFromSlug, imageCdn, isLive } from "~/helpers"
+import { entrantsFromUri, getRafflerFromSlug, imageCdn, isLive } from "~/helpers"
 import { nativeMint } from "~/helpers/pdas"
 import { getRaffleState } from "~/helpers/raffle-state"
 import { raffleProgram } from "~/helpers/raffle.server"
 import { buyTickets } from "~/helpers/txs"
-import {
-  Entrants,
-  RaffleState,
-  RaffleWithPublicKey,
-  RaffleWithPublicKeyAndEntrants,
-  RafflerWithPublicKey,
-} from "~/types/types"
+import { RaffleState, RaffleWithPublicKeyAndEntrants, RafflerWithPublicKey } from "~/types/types"
 
 export const loader: LoaderFunction = async ({ params, context }) => {
   const raffler = await getRafflerFromSlug(params.slug as string)

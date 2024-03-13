@@ -1,6 +1,6 @@
 import * as anchor from "@coral-xyz/anchor"
 import { Button, Tab, Tabs } from "@nextui-org/react"
-import { LoaderFunction, MetaFunction, json } from "@remix-run/node"
+import { LoaderFunction, MetaFunction, json } from "@vercel/remix"
 import { Link, Outlet, useLoaderData } from "@remix-run/react"
 import { useWallet } from "@solana/wallet-adapter-react"
 import { useRaffle } from "~/context/raffle"
