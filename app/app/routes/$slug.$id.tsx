@@ -37,7 +37,7 @@ import {
 
 import { useLoaderData, useNavigate, useOutletContext } from "@remix-run/react"
 import { DAS } from "helius-sdk"
-import { groupBy, map } from "lodash"
+import _ from "lodash"
 import { ReactElement, useEffect, useRef, useState } from "react"
 import toast from "react-hot-toast"
 import { NftSelector, NftSelectorModal } from "~/components/NftSelector"
@@ -181,8 +181,8 @@ export default function SingleRaffle() {
       } else {
         entrantsArray = await getEntrantsArray(umi, fromWeb3JsPublicKey(raffle.account.entrants))
       }
-      const grouped = groupBy(entrantsArray, (item) => item)
-      const mapped = map(grouped, (tickets, key) => {
+      const grouped = _.groupBy(entrantsArray, (item) => item)
+      const mapped = _.map(grouped, (tickets, key) => {
         const chance = (tickets.length / (raffle.entrants.total || 0)) * 100
         return {
           key,

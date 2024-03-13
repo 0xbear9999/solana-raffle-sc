@@ -23,7 +23,6 @@ import { MPL_TOKEN_AUTH_RULES_PROGRAM_ID } from "@metaplex-foundation/mpl-token-
 import { RandomnessService, SimpleRandomnessV1SettledEvent } from "@switchboard-xyz/solana-randomness-service"
 import { assert } from "chai"
 import { FEES_WALLET, expandRandomness, getEntrantsArray } from "./utils"
-import { chunk } from "lodash"
 
 export async function createRaffloor(
   name: string,

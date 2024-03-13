@@ -19,7 +19,7 @@ import { Link, useLoaderData, useOutletContext } from "@remix-run/react"
 import { useWallet } from "@solana/wallet-adapter-react"
 import axios from "axios"
 import { DAS } from "helius-sdk"
-import { groupBy } from "lodash"
+import _ from "lodash"
 import { useEffect, useRef, useState } from "react"
 import { Countdown } from "~/components/Countdown"
 import { RaffleStateChip } from "~/components/RaffleStateChip"
@@ -82,7 +82,7 @@ export default function Raffles() {
 
   console.log(raffles)
 
-  const grouped = groupBy(raffles, (raffle) => {
+  const grouped = _.groupBy(raffles, (raffle) => {
     const state = getRaffleState(raffle)
     return state
   })

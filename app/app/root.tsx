@@ -49,7 +49,6 @@ globalThis.Buffer = Buffer
 
 export default function App() {
   let matches = useMatches()
-  console.log({ matches })
   let childRoute = matches.find((match: any) => match.data !== null && "theme" in match.data)
 
   const { rpcHost } = useLoaderData<typeof loader>()
@@ -107,7 +106,7 @@ export default function App() {
               style={{ "--image-url": `url('${background}')` } as any}
             >
               <main className="container h-full mx-auto max-w-7xl pt-10 px-6 flex-grow">
-                <Outlet />
+                <p>hi</p>
               </main>
             </div>
 

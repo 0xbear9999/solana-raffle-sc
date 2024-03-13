@@ -2,7 +2,7 @@ import * as anchor from "@coral-xyz/anchor"
 import { DigitalAsset } from "@metaplex-foundation/mpl-token-metadata"
 import { KeypairSigner, PublicKey, generateSigner, sol, publicKey } from "@metaplex-foundation/umi"
 import { assert } from "chai"
-import { chunk } from "lodash"
+import _ from "lodash"
 import { randomnessService, adminProgram, createNewUser } from "../helper"
 import { createRaffle, buyTicketsToken, settleRaffle, claimPrize, createRaffloor } from "../helpers/instructions"
 import { findRafflePda, nativeMint, getTokenAccount } from "../helpers/pdas"
@@ -53,7 +53,7 @@ describe("SOL NFT raffle", () => {
     const parsedAcc = await adminProgram.account.entrants.fetch(entrants.publicKey)
     const acc = await umi.rpc.getAccount(entrants.publicKey)
     const dataSlice = acc.exists && acc.data.slice(8 + 4 + 4)
-    const pks = chunk(dataSlice, 32)
+    const pks = _.chunk(dataSlice, 32)
       .slice(0, parsedAcc.total)
       .map((pk) => publicKey(new Uint8Array(pk)))
 

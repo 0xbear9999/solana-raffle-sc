@@ -6,7 +6,7 @@ import bs58 from "bs58"
 import { stakeProgram } from "./stake.server"
 import { Stake } from "~/types/stake"
 import { PublicKey, Umi, publicKey } from "@metaplex-foundation/umi"
-import { chunk } from "lodash"
+import _ from "lodash"
 import { RaffleState } from "~/types/types"
 import axios from "axios"
 
@@ -53,7 +53,7 @@ export async function getEntrantsArray(umi: Umi, entrantsPk: PublicKey) {
 }
 
 export function dataToPks(data: Uint8Array) {
-  return chunk(data as any, 32).map((arr) => publicKey(new Uint8Array(arr as any)))
+  return _.chunk(data as any, 32).map((arr) => publicKey(new Uint8Array(arr as any)))
 }
 // Output is only u32, so can be a number
 export function expandRandomness(randomValue: number[]): number {

@@ -1,4 +1,4 @@
-import { keccak_256 } from "js-sha3"
+import sha3 from "js-sha3"
 import * as anchor from "@coral-xyz/anchor"
 import { PublicKey, Umi, publicKey } from "@metaplex-foundation/umi"
 import assert from "assert"
@@ -8,8 +8,7 @@ import { RafflooorProgram } from "../../target/types/rafflooor_program"
 import { safeFetchToken } from "@metaplex-foundation/mpl-toolbox"
 import { getTokenAccount } from "./pdas"
 import { createSignerFromKeypair } from "@metaplex-foundation/umi"
-import { base58 } from "@metaplex-foundation/umi/serializers"
-import { chunk } from "lodash"
+import _ from "lodash"
 
 export const TX_FEE = 5000n
 export const MAX_REALLOC_SIZE = 10240
@@ -72,7 +71,7 @@ export const DANDIES_COLLECTION_SIGNER = createSignerFromKeypair(
 
 // Output is only u32, so can be a number
 export function expandRandomness(randomValue: number[]): number {
-  const hasher = keccak_256.create()
+  const hasher = sha3.keccak_256.create()
   hasher.update(new Uint8Array(randomValue))
 
   return new anchor.BN(hasher.digest().slice(0, 4), "le").toNumber()
@@ -81,5 +80,5 @@ export function expandRandomness(randomValue: number[]): number {
 export async function getEntrantsArray(entrantsPk: PublicKey) {
   const acc = await umi.rpc.getAccount(entrantsPk)
   const data = acc.exists && acc.data.slice(8 + 4 + 4)
-  return chunk(data, 32).map((arr) => publicKey(new Uint8Array(arr)))
+  return _.chunk(data, 32).map((arr) => publicKey(new Uint8Array(arr)))
 }
