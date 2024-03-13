@@ -53,6 +53,8 @@ export const meta: MetaFunction = () => {
   ]
 }
 
+globalThis.Buffer = Buffer
+
 export default function App() {
   let matches = useMatches()
   console.log({ matches })
@@ -71,7 +73,6 @@ export default function App() {
     if (!setTimeoutProto.unref) {
       setTimeoutProto.unref = function () {}
     }
-    window.Buffer = Buffer
   }, [])
 
   const theme = (childRoute?.data as any)?.theme
