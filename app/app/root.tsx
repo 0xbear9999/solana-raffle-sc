@@ -53,11 +53,6 @@ export default function App() {
   let childRoute = matches.find((match: any) => match.data !== null && "theme" in match.data)
 
   const { rpcHost } = useLoaderData<typeof loader>()
-  const css = `
-    html {
-      --primary-color: "#fefefe"
-    }
-  `
 
   useEffect(() => {
     // @ts-ignore
@@ -77,7 +72,6 @@ export default function App() {
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <Meta />
         <Links />
-        <style>{css}</style>
       </head>
       <body className="h-screen">
         <Toaster
