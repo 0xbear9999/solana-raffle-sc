@@ -14,8 +14,8 @@ import { PlusCircleIcon } from "@heroicons/react/24/outline"
 import _ from "lodash"
 
 export const loader: LoaderFunction = async () => {
-  const rafflers = await raffleProgram.account.raffler.all()
-  console.log({ rafflers })
+  // const rafflers = await raffleProgram.account.raffler.all()
+  console.log(raffleProgram.provider.connection)
   return json({
     rafflers: [],
   })
