@@ -14,21 +14,28 @@ import { PlusCircleIcon } from "@heroicons/react/24/outline"
 import _ from "lodash"
 
 export const loader: LoaderFunction = async () => {
-  // const rafflers = await raffleProgram.provider.connection.getProgramAccounts(raffleProgram.programId)
-  const rafflers = _.orderBy(await raffleProgram.account.raffler.all(), [
-    (r) => r.account.slug !== "xin_labs",
-    (r) => r.account.slug !== "dandies",
-    (r) => r.account.slug,
-  ])
+  // // const rafflers = await raffleProgram.provider.connection.getProgramAccounts(raffleProgram.programId)
+  // const rafflers = _.orderBy(await raffleProgram.account.raffler.all(), [
+  //   (r) => r.account.slug !== "xin_labs",
+  //   (r) => r.account.slug !== "dandies",
+  //   (r) => r.account.slug,
+  // ])
+  // return json({
+  //   rafflers: await Promise.all(
+  //     rafflers.map(async (r) => {
+  //       return {
+  //         publicKey: r.publicKey.toBase58(),
+  //         account: await raffleProgram.coder.accounts.encode("raffler", r.account),
+  //       }
+  //     })
+  //   ),
+  // })
+  const res = await raffleProgram.provider.connection.getBalance(
+    new anchor.web3.PublicKey("JCapwSzWyHkjuVrT5ZTyKwBHzV9oYrTNhZguAMc9PiEc")
+  )
+  console.log({ res })
   return json({
-    rafflers: await Promise.all(
-      rafflers.map(async (r) => {
-        return {
-          publicKey: r.publicKey.toBase58(),
-          account: await raffleProgram.coder.accounts.encode("raffler", r.account),
-        }
-      })
-    ),
+    rafflers: [],
   })
 }
 
