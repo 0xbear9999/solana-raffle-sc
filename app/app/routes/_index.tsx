@@ -12,10 +12,34 @@ import { RafflerWithPublicKey, Staker, StakerWithPublicKey } from "~/types/types
 import { useStake } from "~/context/stake"
 import { PlusCircleIcon } from "@heroicons/react/24/outline"
 import _ from "lodash"
-import { Connection } from "@solana/web3.js"
+import axios from "axios"
 
 export const loader: LoaderFunction = async () => {
-  const connection = new Connection("https://rpc.helius.xyz/?api-key=d8bb99b6-342b-40d8-9d9f-731827589922")
+  const { data } = await axios.post(process.env.RPC_URL!, {
+    data: {
+      jsonrpc: "2.0",
+      id: 1,
+      method: "getProgramAccounts",
+      params: [
+        raffleProgram.programId.toBase58(),
+        // {
+        //   filters: [
+        //     {
+        //       dataSize: 17,
+        //     },
+        //     {
+        //       memcmp: {
+        //         offset: 4,
+        //         bytes: "3Mc6vR",
+        //       },
+        //     },
+        //   ],
+        // },
+      ],
+    },
+  })
+
+  console.log({ data })
 
   // // const rafflers = await raffleProgram.provider.connection.getProgramAccounts(raffleProgram.programId)
   // const rafflers = _.orderBy(await raffleProgram.account.raffler.all(), [
@@ -33,8 +57,8 @@ export const loader: LoaderFunction = async () => {
   //     })
   //   ),
   // })
-  const res = await connection.getBalance(new anchor.web3.PublicKey("JCapwSzWyHkjuVrT5ZTyKwBHzV9oYrTNhZguAMc9PiEc"))
-  console.log({ res })
+  // const res = await connection.getBalance(new anchor.web3.PublicKey("JCapwSzWyHkjuVrT5ZTyKwBHzV9oYrTNhZguAMc9PiEc"))
+  // console.log({ res })
   return json({
     rafflers: [],
   })
