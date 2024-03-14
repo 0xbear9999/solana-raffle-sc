@@ -47,7 +47,7 @@ export const meta: MetaFunction = () => {
 
 export const config = {
   memory: 1024,
-  runtime: "edge",
+  maxDuration: 30,
 }
 
 globalThis.Buffer = Buffer
