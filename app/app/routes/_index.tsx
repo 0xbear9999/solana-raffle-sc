@@ -14,22 +14,26 @@ import { PlusCircleIcon } from "@heroicons/react/24/outline"
 import _ from "lodash"
 
 export const loader: LoaderFunction = async () => {
-  const rafflers = _.orderBy(await raffleProgram.account.raffler.all(), [
-    (r) => r.account.slug !== "xin_labs",
-    (r) => r.account.slug !== "dandies",
-    (r) => r.account.slug,
-  ])
-  console.log(rafflers)
+  console.log({ raffleProgram })
   return json({
-    rafflers: await Promise.all(
-      rafflers.map(async (r) => {
-        return {
-          publicKey: r.publicKey.toBase58(),
-          account: await raffleProgram.coder.accounts.encode("raffler", r.account),
-        }
-      })
-    ),
+    rafflers: [],
   })
+  // const rafflers = _.orderBy(await raffleProgram.account.raffler.all(), [
+  //   (r) => r.account.slug !== "xin_labs",
+  //   (r) => r.account.slug !== "dandies",
+  //   (r) => r.account.slug,
+  // ])
+  // console.log(rafflers)
+  // return json({
+  //   rafflers: await Promise.all(
+  //     rafflers.map(async (r) => {
+  //       return {
+  //         publicKey: r.publicKey.toBase58(),
+  //         account: await raffleProgram.coder.accounts.encode("raffler", r.account),
+  //       }
+  //     })
+  //   ),
+  // })
 }
 
 export default function Index() {
