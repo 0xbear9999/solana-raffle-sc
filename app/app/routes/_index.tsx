@@ -16,30 +16,25 @@ import axios from "axios"
 
 export const loader: LoaderFunction = async () => {
   const { data } = await axios.post(process.env.RPC_HOST!, {
-    data: {
-      jsonrpc: "2.0",
-      id: 1,
-      method: "getProgramAccounts",
-      params: [
-        raffleProgram.programId.toBase58(),
-        {
-          encoding: "base64",
-        },
-        // {
-        //   filters: [
-        //     {
-        //       dataSize: 17,
-        //     },
-        //     {
-        //       memcmp: {
-        //         offset: 4,
-        //         bytes: "3Mc6vR",
-        //       },
-        //     },
-        //   ],
-        // },
-      ],
-    },
+    jsonrpc: "2.0",
+    id: 1,
+    method: "getProgramAccounts",
+    params: [
+      raffleProgram.programId.toBase58(),
+      // {
+      //   filters: [
+      //     {
+      //       dataSize: 17,
+      //     },
+      //     {
+      //       memcmp: {
+      //         offset: 4,
+      //         bytes: "3Mc6vR",
+      //       },
+      //     },
+      //   ],
+      // },
+    ],
   })
 
   console.log({ data })
