@@ -35,6 +35,7 @@
     "@vercel/remix": "^2.8.1",
     "axios": "^1.6.7",
     "bs58": "^5.0.0",
+    "buffer": "^6.0.3",
     "dayjs": "^1.11.10",
     "framer-motion": "^11.0.6",
     "helius-sdk": "^1.2.5",
