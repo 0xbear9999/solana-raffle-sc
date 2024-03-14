@@ -40,7 +40,7 @@ export const loader: LoaderFunction = async () => {
     ],
   })
 
-  console.log({ data })
+  console.log(data.result)
 
   // // const rafflers = await raffleProgram.provider.connection.getProgramAccounts(raffleProgram.programId)
   // const rafflers = _.orderBy(await raffleProgram.account.raffler.all(), [
