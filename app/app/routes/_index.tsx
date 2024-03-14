@@ -21,6 +21,9 @@ export const loader: LoaderFunction = async () => {
     method: "getProgramAccounts",
     params: [
       raffleProgram.programId.toBase58(),
+      {
+        encoding: "base64",
+      },
       // {
       //   filters: [
       //     {
