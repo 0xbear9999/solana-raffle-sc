@@ -1,3 +1,4 @@
+import * as anchor from "@coral-xyz/anchor"
 import { fromWeb3JsPublicKey } from "@metaplex-foundation/umi-web3js-adapters"
 import { json, type LoaderFunction, type MetaFunction } from "@vercel/remix"
 import { Link, useLoaderData } from "@remix-run/react"
@@ -10,27 +11,39 @@ import { Card, CardBody, Image } from "@nextui-org/react"
 import { RafflerWithPublicKey, Staker, StakerWithPublicKey } from "~/types/types"
 import { useStake } from "~/context/stake"
 import { PlusCircleIcon } from "@heroicons/react/24/outline"
-import { orderBy } from "lodash"
+import _ from "lodash"
 
-// export const loader: LoaderFunction = async () => {
-//   const rafflers = orderBy(await raffleProgram.account.raffler.all(), [
-//     (r) => r.account.slug !== "xin_labs",
-//     (r) => r.account.slug !== "dandies",
-//     (r) => r.account.slug,
-//   ])
-//   console.log({ rafflers })
-//   return json({
-//     rafflers,
-//   })
-// }
+export const loader: LoaderFunction = async () => {
+  const rafflers = _.orderBy(await raffleProgram.account.raffler.all(), [
+    (r) => r.account.slug !== "xin_labs",
+    (r) => r.account.slug !== "dandies",
+    (r) => r.account.slug,
+  ])
+  console.log(rafflers)
+  return json({
+    rafflers: await Promise.all(
+      rafflers.map(async (r) => {
+        return {
+          publicKey: r.publicKey.toBase58(),
+          account: await raffleProgram.coder.accounts.encode("raffler", r.account),
+        }
+      })
+    ),
+  })
+}
 
 export default function Index() {
   const [loading, setLoading] = useState(false)
-  // const { rafflers } = useLoaderData<typeof loader>()
-  // console.log({ rafflers })
   const wallet = useWallet()
   const umi = useUmi()
   const raffleProgram = useRaffle()
+  const data = useLoaderData<typeof loader>()
+  const rafflers: RafflerWithPublicKey[] = data.rafflers.map((r: any) => {
+    return {
+      publicKey: new anchor.web3.PublicKey(r.publicKey),
+      account: raffleProgram.coder.accounts.decode("raffler", Buffer.from(r.account)),
+    }
+  })
 
   return (
     <div className="container m-x-auto">
