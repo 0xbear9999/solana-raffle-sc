@@ -13,6 +13,7 @@ import { getAccounts } from "./index.server"
 
 export async function getRafflerFromSlug(slug: string) {
   const rafflers = await getAccounts(
+    raffleProgram,
     "raffler",
     [
       {
@@ -30,15 +31,19 @@ export async function getRafflerFromSlug(slug: string) {
 }
 
 export async function getStakerFromSlug(slug: string, program: anchor.Program<Stake> = stakeProgram) {
-  const all = await program.account.staker.all()
-  const stakers = await program.account.staker.all([
-    {
-      memcmp: {
-        offset: 8 + 32 + 4,
-        bytes: bs58.encode(Buffer.from(slug)),
+  const stakers = await getAccounts(
+    stakeProgram,
+    "staker",
+    [
+      {
+        memcmp: {
+          offset: 8 + 32 + 4,
+          bytes: bs58.encode(Buffer.from(slug)),
+        },
       },
-    },
-  ])
+    ],
+    true
+  )
 
   const staker = stakers.find((s) => s.account.slug === slug)
   return staker

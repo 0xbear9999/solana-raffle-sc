@@ -15,7 +15,7 @@ import { getAccounts } from "~/helpers/index.server"
 import _ from "lodash"
 
 export const loader: LoaderFunction = async () => {
-  const rafflers = await getAccounts("raffler")
+  const rafflers = await getAccounts(raffleProgram, "raffler")
 
   return json({
     rafflers,

@@ -41,6 +41,7 @@ export const loader: LoaderFunction = async ({ params, context }) => {
     throw new Response("Not found", { status: 404, statusText: "Not found" })
   }
   const raffles = await getAccounts(
+    raffleProgram,
     "raffle",
     [
       {
