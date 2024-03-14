@@ -15,7 +15,7 @@ import _ from "lodash"
 import axios from "axios"
 
 export const loader: LoaderFunction = async () => {
-  const { data } = await axios.post(process.env.RPC_URL!, {
+  const { data } = await axios.post(process.env.RPC_HOST!, {
     data: {
       jsonrpc: "2.0",
       id: 1,
