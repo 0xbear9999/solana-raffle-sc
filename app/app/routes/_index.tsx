@@ -12,22 +12,22 @@ import { useStake } from "~/context/stake"
 import { PlusCircleIcon } from "@heroicons/react/24/outline"
 import { orderBy } from "lodash"
 
-export const loader: LoaderFunction = async () => {
-  const rafflers = orderBy(await raffleProgram.account.raffler.all(), [
-    (r) => r.account.slug !== "xin_labs",
-    (r) => r.account.slug !== "dandies",
-    (r) => r.account.slug,
-  ])
-  console.log({ rafflers })
-  return json({
-    rafflers,
-  })
-}
+// export const loader: LoaderFunction = async () => {
+//   const rafflers = orderBy(await raffleProgram.account.raffler.all(), [
+//     (r) => r.account.slug !== "xin_labs",
+//     (r) => r.account.slug !== "dandies",
+//     (r) => r.account.slug,
+//   ])
+//   console.log({ rafflers })
+//   return json({
+//     rafflers,
+//   })
+// }
 
 export default function Index() {
   const [loading, setLoading] = useState(false)
-  const { rafflers } = useLoaderData<typeof loader>()
-  console.log({ rafflers })
+  // const { rafflers } = useLoaderData<typeof loader>()
+  // console.log({ rafflers })
   const wallet = useWallet()
   const umi = useUmi()
   const raffleProgram = useRaffle()
@@ -35,9 +35,9 @@ export default function Index() {
   return (
     <div className="container m-x-auto">
       <div className="grid gap-4 grid-cols-3">
-        {rafflers.map((raffler: RafflerWithPublicKey) => (
+        {/* {rafflers.map((raffler: RafflerWithPublicKey) => (
           <Raffler raffler={raffler} />
-        ))}
+        ))} */}
         <Card>
           <CardBody className="flex items-center justify-center">
             <Link to="/create" className="flex flex-col items-center justify-center gap-2">
