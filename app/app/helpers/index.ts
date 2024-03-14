@@ -9,10 +9,10 @@ import { PublicKey, Umi, publicKey } from "@metaplex-foundation/umi"
 import _ from "lodash"
 import { RaffleState } from "~/types/types"
 import axios from "axios"
-import { getAccounts } from "./index.server"
+import { getProgramAccounts } from "./index.server"
 
 export async function getRafflerFromSlug(slug: string) {
-  const rafflers = await getAccounts(
+  const rafflers = await getProgramAccounts(
     raffleProgram,
     "raffler",
     [
@@ -31,7 +31,7 @@ export async function getRafflerFromSlug(slug: string) {
 }
 
 export async function getStakerFromSlug(slug: string, program: anchor.Program<Stake> = stakeProgram) {
-  const stakers = await getAccounts(
+  const stakers = await getProgramAccounts(
     stakeProgram,
     "staker",
     [

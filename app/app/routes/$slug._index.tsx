@@ -32,15 +32,15 @@ import { nativeMint } from "~/helpers/pdas"
 import { getRaffleState } from "~/helpers/raffle-state"
 import { raffleProgram } from "~/helpers/raffle.server"
 import { buyTickets } from "~/helpers/txs"
-import { RaffleState, RaffleWithPublicKeyAndEntrants, RafflerWithPublicKey } from "~/types/types"
-import { getAccounts } from "~/helpers/index.server"
+import { RaffleState, RaffleWithPublicKey, RaffleWithPublicKeyAndEntrants, RafflerWithPublicKey } from "~/types/types"
+import { getMultipleAccounts, getProgramAccounts } from "~/helpers/index.server"
 
 export const loader: LoaderFunction = async ({ params, context }) => {
   const raffler = await getRafflerFromSlug(params.slug as string)
   if (!raffler) {
     throw new Response("Not found", { status: 404, statusText: "Not found" })
   }
-  const raffles = await getAccounts(
+  const raffles: RaffleWithPublicKey[] = await getProgramAccounts(
     raffleProgram,
     "raffle",
     [
@@ -54,7 +54,13 @@ export const loader: LoaderFunction = async ({ params, context }) => {
     true
   )
 
-  const entrants = await raffleProgram.account.entrants.fetchMultiple(raffles.map((r) => r.account.entrants))
+  const entrants = await getMultipleAccounts(
+    raffles.map((r) => r.account.entrants),
+    "entrants",
+    raffleProgram
+  )
+
+  console.log(entrants)
 
   return json({
     raffles: await Promise.all(

@@ -11,11 +11,11 @@ import { Card, CardBody, Image } from "@nextui-org/react"
 import { RafflerWithPublicKey, Staker, StakerWithPublicKey } from "~/types/types"
 import { useStake } from "~/context/stake"
 import { PlusCircleIcon } from "@heroicons/react/24/outline"
-import { getAccounts } from "~/helpers/index.server"
+import { getProgramAccounts } from "~/helpers/index.server"
 import _ from "lodash"
 
 export const loader: LoaderFunction = async () => {
-  const rafflers = await getAccounts(raffleProgram, "raffler")
+  const rafflers = await getProgramAccounts(raffleProgram, "raffler")
 
   return json({
     rafflers,

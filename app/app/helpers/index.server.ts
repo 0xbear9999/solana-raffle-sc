@@ -2,7 +2,7 @@ import * as anchor from "@coral-xyz/anchor"
 import axios from "axios"
 import { GetProgramAccountsFilter } from "@solana/web3.js"
 
-export async function getAccounts(
+export async function getProgramAccounts(
   program: anchor.Program<any>,
   type: string,
   filters: GetProgramAccountsFilter[] = [],
@@ -33,6 +33,34 @@ export async function getAccounts(
         publicKey: new anchor.web3.PublicKey(item.pubkey),
         account: decode ? await program.coder.accounts.decode(type, encoded) : encoded,
       }
+    })
+  )
+}
+
+export async function getMultipleAccounts(
+  addresses: anchor.web3.PublicKey[],
+  type: string,
+  program: anchor.Program<any>
+) {
+  const { data } = await axios.post(process.env.RPC_HOST!, {
+    jsonrpc: "2.0",
+    id: 1,
+    method: "getMultipleAccounts",
+    params: [
+      addresses.map((a) => a.toBase58()),
+      {
+        encoding: "base64",
+      },
+    ],
+  })
+
+  return await Promise.all(
+    data.result.value.map(async (item: any, index: number) => {
+      if (!item) {
+        return null
+      }
+      const encoded = Buffer.from(item.data[0], "base64")
+      return await program.coder.accounts.decode(type, encoded)
     })
   )
 }
