@@ -13,8 +13,10 @@ import { useStake } from "~/context/stake"
 import { PlusCircleIcon } from "@heroicons/react/24/outline"
 import _ from "lodash"
 import axios from "axios"
+import { base64 } from "@metaplex-foundation/umi/serializers"
 
 export const loader: LoaderFunction = async () => {
+  console.log(raffleProgram.coder.accounts.memcmp("raffler"))
   const { data } = await axios.post(process.env.RPC_HOST!, {
     jsonrpc: "2.0",
     id: 1,
@@ -23,9 +25,12 @@ export const loader: LoaderFunction = async () => {
       raffleProgram.programId.toBase58(),
       {
         encoding: "base64",
+        filters: [
+          {
+            memcmp: raffleProgram.coder.accounts.memcmp("raffler"),
+          },
+        ],
       },
-      // {
-      //   filters: [
       //     {
       //       dataSize: 17,
       //     },
@@ -40,7 +45,13 @@ export const loader: LoaderFunction = async () => {
     ],
   })
 
-  console.log(data.result)
+  const rafflers = data.result.map((item: any) => {
+    return {
+      publicKey: item.pubkey,
+      account: Buffer.from(item.account.data[0], "base64"),
+    }
+  })
+  // raffleProgram.account.raffler.coder
 
   // // const rafflers = await raffleProgram.provider.connection.getProgramAccounts(raffleProgram.programId)
   // const rafflers = _.orderBy(await raffleProgram.account.raffler.all(), [
@@ -61,7 +72,7 @@ export const loader: LoaderFunction = async () => {
   // const res = await connection.getBalance(new anchor.web3.PublicKey("JCapwSzWyHkjuVrT5ZTyKwBHzV9oYrTNhZguAMc9PiEc"))
   // console.log({ res })
   return json({
-    rafflers: [],
+    rafflers,
   })
 }
 
