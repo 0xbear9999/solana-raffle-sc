@@ -11,6 +11,7 @@
     "typecheck": "tsc"
   },
   "dependencies": {
+    "buffer-polyfill": "npm:buffer@^6.0.3",
     "@coral-xyz/anchor": "^0.29.0",
     "@heroicons/react": "^2.1.1",
     "@metaplex-foundation/mpl-token-auth-rules": "^3.0.3",
@@ -35,7 +36,6 @@
     "@vercel/remix": "^2.8.1",
     "axios": "^1.6.7",
     "bs58": "^5.0.0",
-    "buffer": "^6.0.3",
     "dayjs": "^1.11.10",
     "framer-motion": "^11.0.6",
     "helius-sdk": "^1.2.5",
