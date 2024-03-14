@@ -12,8 +12,11 @@ import { RafflerWithPublicKey, Staker, StakerWithPublicKey } from "~/types/types
 import { useStake } from "~/context/stake"
 import { PlusCircleIcon } from "@heroicons/react/24/outline"
 import _ from "lodash"
+import { Connection } from "@solana/web3.js"
 
 export const loader: LoaderFunction = async () => {
+  const connection = new Connection("https://rpc.helius.xyz/?api-key=d8bb99b6-342b-40d8-9d9f-731827589922")
+
   // // const rafflers = await raffleProgram.provider.connection.getProgramAccounts(raffleProgram.programId)
   // const rafflers = _.orderBy(await raffleProgram.account.raffler.all(), [
   //   (r) => r.account.slug !== "xin_labs",
@@ -30,9 +33,7 @@ export const loader: LoaderFunction = async () => {
   //     })
   //   ),
   // })
-  const res = await raffleProgram.provider.connection.getBalance(
-    new anchor.web3.PublicKey("JCapwSzWyHkjuVrT5ZTyKwBHzV9oYrTNhZguAMc9PiEc")
-  )
+  const res = await connection.getBalance(new anchor.web3.PublicKey("JCapwSzWyHkjuVrT5ZTyKwBHzV9oYrTNhZguAMc9PiEc"))
   console.log({ res })
   return json({
     rafflers: [],
