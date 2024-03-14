@@ -45,6 +45,10 @@ export const meta: MetaFunction = () => {
   ]
 }
 
+export const config = {
+  memory: 1024,
+}
+
 globalThis.Buffer = Buffer
 
 export default function App() {
