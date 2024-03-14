@@ -8,6 +8,8 @@ import { getRafflerFromSlug, getStakerFromSlug } from "~/helpers"
 import { raffleProgram } from "~/helpers/raffle.server"
 import { stakeProgram } from "~/helpers/stake.server"
 import { Raffler, RafflerWithPublicKey } from "~/types/types"
+import { umi } from "~/helpers/umi"
+import { getAccount } from "~/helpers/index.server"
 
 export const meta: MetaFunction = ({ data }: { data: any }) => {
   return [{ title: `${data.name} // RAFFLE` }]
@@ -16,7 +18,7 @@ export const meta: MetaFunction = ({ data }: { data: any }) => {
 export const loader: LoaderFunction = async ({ params }) => {
   const { slug } = params
   const raffler = await getRafflerFromSlug(slug as string)
-  const staker = raffler?.account.staker ? await stakeProgram.account.staker.fetch(raffler.account.staker) : null
+  const staker = raffler?.account.staker ? await getAccount(raffler.account.staker, "staker", stakeProgram) : null
   const encoded = await raffleProgram.coder.accounts.encode("raffler", raffler?.account)
 
   return json({

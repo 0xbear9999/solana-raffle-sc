@@ -14,7 +14,7 @@ import {
   transactionBuilder,
   unwrapOptionRecursively,
 } from "@metaplex-foundation/umi"
-import { fromWeb3JsInstruction } from "@metaplex-foundation/umi-web3js-adapters"
+import { fromWeb3JsInstruction, toWeb3JsPublicKey } from "@metaplex-foundation/umi-web3js-adapters"
 import { Button, Card, CardBody, Input, Spinner } from "@nextui-org/react"
 import { LoaderFunction, json } from "@vercel/remix"
 import { isRouteErrorResponse, useLoaderData, useRouteError } from "@remix-run/react"
@@ -31,9 +31,10 @@ import { getPriorityFeesForTx } from "~/helpers/helius"
 import { findProgramConfigPda, findProgramDataAddress, getTokenAccount, getTokenRecordPda } from "~/helpers/pdas"
 import { raffleProgram } from "~/helpers/raffle.server"
 import { umi } from "~/helpers/umi"
+import { getAccount } from "~/helpers/index.server"
 
 export const loader: LoaderFunction = async () => {
-  const programConfig = await raffleProgram.account.programConfig.fetch(findProgramConfigPda(umi))
+  const programConfig = await getAccount(toWeb3JsPublicKey(findProgramConfigPda(umi)), "programConfig", raffleProgram)
 
   return json({
     programConfig: await raffleProgram.coder.accounts.encode("programConfig", programConfig),

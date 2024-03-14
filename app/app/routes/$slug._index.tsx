@@ -33,20 +33,25 @@ import { getRaffleState } from "~/helpers/raffle-state"
 import { raffleProgram } from "~/helpers/raffle.server"
 import { buyTickets } from "~/helpers/txs"
 import { RaffleState, RaffleWithPublicKeyAndEntrants, RafflerWithPublicKey } from "~/types/types"
+import { getAccounts } from "~/helpers/index.server"
 
 export const loader: LoaderFunction = async ({ params, context }) => {
   const raffler = await getRafflerFromSlug(params.slug as string)
   if (!raffler) {
     throw new Response("Not found", { status: 404, statusText: "Not found" })
   }
-  const raffles = await raffleProgram.account.raffle.all([
-    {
-      memcmp: {
-        bytes: raffler.publicKey.toBase58(),
-        offset: 8,
+  const raffles = await getAccounts(
+    "raffle",
+    [
+      {
+        memcmp: {
+          bytes: raffler.publicKey.toBase58(),
+          offset: 8,
+        },
       },
-    },
-  ])
+    ],
+    true
+  )
 
   const entrants = await raffleProgram.account.entrants.fetchMultiple(raffles.map((r) => r.account.entrants))
 

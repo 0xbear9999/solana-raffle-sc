@@ -9,16 +9,21 @@ import { PublicKey, Umi, publicKey } from "@metaplex-foundation/umi"
 import _ from "lodash"
 import { RaffleState } from "~/types/types"
 import axios from "axios"
+import { getAccounts } from "./index.server"
 
 export async function getRafflerFromSlug(slug: string) {
-  const rafflers = await raffleProgram.account.raffler.all([
-    {
-      memcmp: {
-        offset: 8 + 32 + 4,
-        bytes: bs58.encode(Buffer.from(slug)),
+  const rafflers = await getAccounts(
+    "raffler",
+    [
+      {
+        memcmp: {
+          offset: 8 + 32 + 4,
+          bytes: bs58.encode(Buffer.from(slug)),
+        },
       },
-    },
-  ])
+    ],
+    true
+  )
 
   const raffler = rafflers.find((s) => s.account.slug === slug)
   return raffler

@@ -71,12 +71,13 @@ import { buyTickets } from "~/helpers/txs"
 import { getRaffleState } from "~/helpers/raffle-state"
 import { RaffleStateChip } from "~/components/RaffleStateChip"
 import { BackArrow } from "~/components/BackArrow"
+import { getAccount } from "~/helpers/index.server"
 
 type TicketType = "nft" | "token" | "sol"
 
 export const loader: LoaderFunction = async ({ params }) => {
   const { id } = params
-  const raffle = await raffleProgram.account.raffle.fetch(id as string)
+  const raffle = await getAccount(new anchor.web3.PublicKey(id as string), "raffle", raffleProgram)
   let entrants: Entrants | null = null
   let entrantsArray: string[] = []
   if (raffle.uri) {
@@ -84,7 +85,7 @@ export const loader: LoaderFunction = async ({ params }) => {
     entrants = await raffleProgram.coder.accounts.decode("entrants", Buffer.from(Object.values(data) as any))
     entrantsArray = dataToPks(new Uint8Array((Object.values(data) as any).slice(8 + 4 + 4)))
   } else {
-    entrants = await raffleProgram.account.entrants.fetchNullable(raffle.entrants)
+    entrants = await getAccount(raffle.entrants, "entrants", raffleProgram)
   }
 
   return json({

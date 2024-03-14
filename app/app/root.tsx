@@ -1,3 +1,4 @@
+import { Buffer } from "buffer"
 import stylesheet from "~/tailwind.css"
 
 import type { LinksFunction, MetaFunction } from "@vercel/remix"
@@ -43,6 +44,8 @@ export const meta: MetaFunction = () => {
     },
   ]
 }
+
+globalThis.Buffer = Buffer
 
 export default function App() {
   let matches = useMatches()
