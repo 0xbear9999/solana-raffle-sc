@@ -106,7 +106,7 @@ export default function App() {
               style={{ "--image-url": `url('${background}')` } as any}
             >
               <main className="container h-full mx-auto max-w-7xl pt-10 px-6 flex-grow">
-                <p>hi</p>
+                <Outlet />
               </main>
             </div>
 
