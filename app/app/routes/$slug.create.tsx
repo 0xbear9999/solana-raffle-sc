@@ -1,6 +1,7 @@
 import * as anchor from "@coral-xyz/anchor"
 import { MPL_TOKEN_AUTH_RULES_PROGRAM_ID } from "@metaplex-foundation/mpl-token-auth-rules"
 import {
+  DigitalAsset,
   DigitalAssetWithToken,
   MPL_TOKEN_METADATA_PROGRAM_ID,
   TokenStandard,
@@ -67,7 +68,7 @@ export default function Create() {
   const raffler = useOutletContext<RafflerWithPublicKey>()
   const [loading, setLoading] = useState(false)
   const umi = useUmi()
-  const [tokenAcc, setTokenAcc] = useState<null | DigitalAssetWithToken>(null)
+  const [tokenAcc, setTokenAcc] = useState<null | DigitalAsset>(null)
   const [tokenError, setTokenError] = useState<null | string>(null)
   const [prizeTokenAcc, setPrizeTokenAcc] = useState<null | DigitalAssetWithToken>(null)
   const [prizeTokenError, setPrizeTokenError] = useState<null | string>(null)
@@ -120,22 +121,31 @@ export default function Create() {
 
     const debouncedFilter = debounce(async () => {
       try {
-        const tokenMint = publicKey(formState.tokenMint!)
-        const tokenAcc = await fetchDigitalAssetWithToken(
-          umi,
-          tokenMint,
-          getTokenAccount(umi, tokenMint, umi.identity.publicKey)
-        )
-        if (tokenAcc) {
-          setTokenAcc(tokenAcc)
-          setTokenError(null)
+        const mint = publicKey(formState.tokenMint)
+        const da = await fetchDigitalAsset(umi, mint)
+        setTokenAcc(da)
+        setTokenError(null)
+      } catch (err: any) {
+        if (err.message.includes("The account of type [Metadata] was not found")) {
+          const tokenMint = publicKey(formState.tokenMint)
+          const mint = await fetchMint(umi, tokenMint)
+          const { data } = await axios.get<{ digitalAsset: TokenWithTokenInfo }>(`/api/get-nft/${tokenMint}`)
+
+          setTokenAcc({
+            metadata: {
+              name:
+                data.digitalAsset.content?.metadata.name ||
+                data.digitalAsset.content?.metadata.symbol ||
+                data.digitalAsset.token_info.symbol ||
+                "Unknown token",
+              symbol: data.digitalAsset.content?.metadata.symbol || data.digitalAsset.token_info.symbol,
+            } as any,
+            mint,
+            publicKey: tokenMint,
+          })
         } else {
-          setTokenAcc(null)
-          setTokenError("Error looking up token account")
+          console.error(err)
         }
-      } catch (err) {
-        setTokenError("Error looking up token account")
-        setTokenAcc(null)
       }
     }, 500)
 
