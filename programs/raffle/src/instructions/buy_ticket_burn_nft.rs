@@ -286,6 +286,7 @@ pub fn buy_ticket_burn_nft_handler(ctx: Context<BuyTicketBurnNft>) -> Result<()>
             }
             _ => return err!(RaffleError::InvalidInstruction),
         },
+        _ => {}
     }
 
     add_entrants(

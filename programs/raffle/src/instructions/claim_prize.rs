@@ -6,7 +6,7 @@ use anchor_spl::{
 };
 
 use crate::{
-    state::{Entrants, EntryType, PaymentType, ProgramConfig, Raffle, Raffler},
+    state::{Entrants, EntryType, PaymentType, PrizeType, ProgramConfig, Raffle, Raffler},
     utils::expand_randomness,
     RaffleError, FEES_WALLET, NATIVE_MINT,
 };
@@ -71,6 +71,7 @@ pub struct ClaimPrize<'info> {
                     return err!(RaffleError::TokenMintUnexpected)
                 }
             }
+            _ => return err!(RaffleError::TokenMintUnexpected)
         } @ RaffleError::InvalidTokenMint
     )]
     pub proceeds_mint: Option<Box<Account<'info, Mint>>>,
@@ -244,6 +245,18 @@ impl<'info> ClaimPrize<'info> {
         CpiContext::new(cpi_program, cpi_accounts)
     }
 
+    pub fn transfer_prize_ctx(&self) -> CpiContext<'_, '_, '_, 'info, Transfer<'info>> {
+        let cpi_accounts = Transfer {
+            from: self.prize_custody.to_account_info(),
+            to: self.prize_destination.to_account_info(),
+            authority: self.raffle.to_account_info(),
+        };
+
+        let cpi_program = self.token_program.to_account_info();
+
+        CpiContext::new(cpi_program, cpi_accounts)
+    }
+
     pub fn close_proceeds_ctx(&self) -> CpiContext<'_, '_, '_, 'info, CloseAccount<'info>> {
         let cpi_accounts = CloseAccount {
             account: self.proceeds_source.as_ref().unwrap().to_account_info(),
@@ -272,8 +285,17 @@ pub fn claim_prize_handler<'info>(
         &[bump],
     ];
 
-    let prize_metadata = next_account_info(remaining_accounts)?;
-    let prize_master_edition = next_account_info(remaining_accounts)?;
+    let prize_metadata = if raffle.prize_type == PrizeType::Nft {
+        Some(next_account_info(remaining_accounts)?)
+    } else {
+        None
+    };
+
+    let prize_master_edition = if raffle.prize_type == PrizeType::Nft {
+        Some(next_account_info(remaining_accounts)?)
+    } else {
+        None
+    };
 
     let source_token_record = match next_account_info(remaining_accounts) {
         Ok(val) => Some(val.to_account_info()),
@@ -340,6 +362,7 @@ pub fn claim_prize_handler<'info>(
             token_mint: _,
             ticket_price: _,
         } => true,
+        _ => false,
     };
 
     if should_transfer {
@@ -386,12 +409,24 @@ pub fn claim_prize_handler<'info>(
 
     raffle.claimed = true;
 
-    ctx.accounts.transfer_nft(
-        prize_metadata,
-        prize_master_edition,
-        source_token_record,
-        destination_token_record,
-    )?;
+    match raffle.prize_type {
+        PrizeType::Nft => {
+            ctx.accounts.transfer_nft(
+                prize_metadata.unwrap(),
+                prize_master_edition.unwrap(),
+                source_token_record,
+                destination_token_record,
+            )?;
+        }
+        PrizeType::Token { amount } => {
+            transfer(
+                ctx.accounts
+                    .transfer_prize_ctx()
+                    .with_signer(&[authority_seed]),
+                amount,
+            )?;
+        }
+    }
 
     close_account(
         ctx.accounts

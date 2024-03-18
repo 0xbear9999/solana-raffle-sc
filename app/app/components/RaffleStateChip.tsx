@@ -8,7 +8,6 @@ export function RaffleStateChip({
   raffleState: RaffleState
   raffle: RaffleWithPublicKeyAndEntrants
 }) {
-  console.log(raffleState, raffle)
   return (
     <Chip
       className="absolute top-2 right-2 z-10"

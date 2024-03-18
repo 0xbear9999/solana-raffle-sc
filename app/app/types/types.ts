@@ -22,6 +22,13 @@ export type StakerWithPublicKey = {
   account: Staker
 }
 
+export type Theme = {
+  bg?: string | null
+  logo?: string | null
+}
+
+export type Assets = { bg: string | null; logo: string | null }
+
 export type Entrants = anchor.IdlAccounts<RaffleProgram>["entrants"]
 export type Raffler = anchor.IdlAccounts<RaffleProgram>["raffler"]
 export type Raffle = anchor.IdlAccounts<RaffleProgram>["raffle"]

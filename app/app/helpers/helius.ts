@@ -20,3 +20,21 @@ export async function getPriorityFeesForTx(tx: string, feeLevel: PriorityFees) {
 
   return data?.result?.priorityFeeEstimate || 0
 }
+
+export async function getPriorityFeesForAddresses(accountKeys: string[], feeLevel: PriorityFees) {
+  const { data } = await axios.post(url, {
+    jsonrpc: "2.0",
+    id: "1",
+    method: "getPriorityFeeEstimate",
+    params: [
+      {
+        accountKeys,
+        options: {
+          includeAllPriorityFeeLevels: true,
+        },
+      },
+    ],
+  })
+
+  return data?.result?.priorityFeeEstimate || 0
+}

@@ -211,6 +211,7 @@ pub fn buy_ticket_send_nft_handler(ctx: Context<BuyTicketSendNft>) -> Result<()>
                 ctx.accounts.transfer_nft()?;
             }
         }
+        _ => return err!(RaffleError::InvalidInstruction),
     }
 
     add_entrants(

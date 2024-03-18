@@ -32,6 +32,7 @@ import { findProgramConfigPda, findProgramDataAddress, getTokenAccount, getToken
 import { raffleProgram } from "~/helpers/raffle.server"
 import { umi } from "~/helpers/umi"
 import { getAccount } from "~/helpers/index.server"
+import { ProgramConfig } from "~/types/types"
 
 export const loader: LoaderFunction = async () => {
   const programConfig = await getAccount(toWeb3JsPublicKey(findProgramConfigPda(umi)), "programConfig", raffleProgram)
@@ -121,7 +122,71 @@ export default function Admin() {
       </div>
 
       <Recover />
+      <UpdateProgramConfig programConfig={programConfig} />
     </div>
+  )
+}
+
+function UpdateProgramConfig({ programConfig }: { programConfig: ProgramConfig }) {
+  const umi = useUmi()
+  const { feeLevel } = usePriorityFees()
+  const [loading, setLoading] = useState(false)
+  const [proceedsShare, setProceedsShare] = useState(programConfig.proceedsShare.toString())
+  const program = useRaffle()
+
+  async function updateProgramConfig() {
+    try {
+      setLoading(true)
+      const promise = Promise.resolve().then(async () => {
+        let tx = transactionBuilder().add({
+          instruction: fromWeb3JsInstruction(
+            await program.methods
+              .updateProgramConfig(null, Number(proceedsShare))
+              .accounts({
+                programConfig: findProgramConfigPda(umi),
+                program: program.programId,
+                programData: findProgramDataAddress(umi),
+              })
+              .instruction()
+          ),
+          bytesCreatedOnChain: 0,
+          signers: [umi.identity],
+        })
+        const built = await tx.buildWithLatestBlockhash(umi)
+
+        const fee = await getPriorityFeesForTx(base58.encode(umi.transactions.serialize(built)), feeLevel)
+
+        if (fee) {
+          tx = tx.prepend(setComputeUnitPrice(umi, { microLamports: fee }))
+        }
+
+        const conf = await tx.sendAndConfirm(umi)
+        if (conf.result.value.err) {
+          throw new Error("Error confirming")
+        }
+      })
+
+      toast.promise(promise, {
+        loading: "Updating program config",
+        success: "Updated successfully",
+        error: "Error updating",
+      })
+
+      await promise
+    } catch (err) {
+      console.error(err)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <Card>
+      <CardBody className="flex flex-col gap-3">
+        <Input type="number" label="Proceeds share" value={proceedsShare} onValueChange={setProceedsShare} />
+        <Button onClick={updateProgramConfig}>Update</Button>
+      </CardBody>
+    </Card>
   )
 }
 

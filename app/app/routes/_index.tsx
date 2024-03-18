@@ -13,6 +13,8 @@ import { useStake } from "~/context/stake"
 import { PlusCircleIcon } from "@heroicons/react/24/outline"
 import { getProgramAccounts } from "~/helpers/index.server"
 import _ from "lodash"
+import { Title } from "~/components/Title"
+import { CreateRaffle } from "~/components/CreateRaffle"
 
 export const loader: LoaderFunction = async () => {
   const rafflers = await getProgramAccounts(raffleProgram, "raffler")
@@ -39,19 +41,11 @@ export default function Index() {
   )
 
   return (
-    <div className="container m-x-auto">
-      <div className="grid gap-4 grid-cols-3">
+    <div className="container m-x-auto h-full">
+      <div className="grid gap-6 lg:grid-cols-4 grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:gid-cols-5">
         {rafflers.map((raffler: RafflerWithPublicKey) => (
           <Raffler raffler={raffler} />
         ))}
-        <Card>
-          <CardBody className="flex items-center justify-center">
-            <Link to="/create" className="flex flex-col items-center justify-center gap-2">
-              <PlusCircleIcon className="text-primary w-10" />
-              <p className="text-3xl font-bold uppercase text-primary">Create Raffler</p>
-            </Link>
-          </CardBody>
-        </Card>
       </div>
     </div>
   )
@@ -75,13 +69,14 @@ function Raffler({ raffler }: { raffler: RafflerWithPublicKey }) {
 
   return (
     <Link to={`/${raffler.account.slug}`}>
-      <Card>
-        {staker && staker.theme.logo !== null && (
+      <Card className="h-40">
+        {staker && staker.theme.logo !== null ? (
           <div className="h-40 flex items-center justify-center">
             <img src={staker.theme.logos[staker.theme.logo]} className="p-10 max-h-full max-w-full" />
           </div>
+        ) : (
+          <CardBody className="flex items-center justify-center">{raffler.account.name}</CardBody>
         )}
-        {/* <CardBody>{raffler.account.name}</CardBody> */}
       </Card>
     </Link>
   )

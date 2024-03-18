@@ -43,6 +43,45 @@ export type Raffle = {
       ]
     },
     {
+      "name": "updateProgramConfig",
+      "accounts": [
+        {
+          "name": "programConfig",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "program",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "programData",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "authority",
+          "isMut": true,
+          "isSigner": true
+        }
+      ],
+      "args": [
+        {
+          "name": "raffleFee",
+          "type": {
+            "option": "u64"
+          }
+        },
+        {
+          "name": "proceedsShare",
+          "type": {
+            "option": "u16"
+          }
+        }
+      ]
+    },
+    {
       "name": "init",
       "accounts": [
         {
@@ -86,6 +125,18 @@ export type Raffle = {
         {
           "name": "slug",
           "type": "string"
+        },
+        {
+          "name": "logo",
+          "type": {
+            "option": "string"
+          }
+        },
+        {
+          "name": "bg",
+          "type": {
+            "option": "string"
+          }
         }
       ]
     },
@@ -191,6 +242,12 @@ export type Raffle = {
         }
       ],
       "args": [
+        {
+          "name": "prizeType",
+          "type": {
+            "defined": "PrizeType"
+          }
+        },
         {
           "name": "numTickets",
           "type": {
@@ -706,6 +763,12 @@ export type Raffle = {
         {
           "name": "uri",
           "type": "string"
+        },
+        {
+          "name": "priorityFee",
+          "type": {
+            "option": "u64"
+          }
         }
       ]
     },
@@ -1147,6 +1210,93 @@ export type Raffle = {
           "type": "string"
         }
       ]
+    },
+    {
+      "name": "deleteRaffler",
+      "accounts": [
+        {
+          "name": "programConfig",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "raffler",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "authority",
+          "isMut": true,
+          "isSigner": true
+        },
+        {
+          "name": "program",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "programData",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "systemProgram",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "updateRaffler",
+      "accounts": [
+        {
+          "name": "raffler",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "authority",
+          "isMut": false,
+          "isSigner": true
+        },
+        {
+          "name": "treasury",
+          "isMut": false,
+          "isSigner": false,
+          "isOptional": true
+        },
+        {
+          "name": "staker",
+          "isMut": false,
+          "isSigner": false,
+          "isOptional": true
+        }
+      ],
+      "args": [
+        {
+          "name": "name",
+          "type": {
+            "option": "string"
+          }
+        },
+        {
+          "name": "logo",
+          "type": {
+            "option": "string"
+          }
+        },
+        {
+          "name": "bg",
+          "type": {
+            "option": "string"
+          }
+        },
+        {
+          "name": "unlinkStaker",
+          "type": "bool"
+        }
+      ]
     }
   ],
   "accounts": [
@@ -1232,9 +1382,18 @@ export type Raffle = {
           {
             "name": "prize",
             "docs": [
-              "mint address of the prize (32)"
+              "mint address of the prize 32"
             ],
             "type": "publicKey"
+          },
+          {
+            "name": "prizeType",
+            "docs": [
+              "type of prize (1 + 8)"
+            ],
+            "type": {
+              "defined": "PrizeType"
+            }
           },
           {
             "name": "randomness",
@@ -1253,7 +1412,7 @@ export type Raffle = {
           {
             "name": "entryType",
             "docs": [
-              "type of entry - Token or NFT (1 + 32 + 8)"
+              "type of entry - Token or NFT (1 + 8)"
             ],
             "type": {
               "defined": "EntryType"
@@ -1262,7 +1421,7 @@ export type Raffle = {
           {
             "name": "paymentType",
             "docs": [
-              "how do entrants pay for entries (1 + 8)"
+              "how do entrants pay for entries (1 + 32 + 8)"
             ],
             "type": {
               "defined": "PaymentType"
@@ -1308,7 +1467,7 @@ export type Raffle = {
           {
             "name": "uri",
             "docs": [
-              "uri link to offchain distribution log (4 + 63)"
+              "uri link to offchain entrants log (4 + 63)"
             ],
             "type": "string"
           },
@@ -1337,14 +1496,14 @@ export type Raffle = {
           {
             "name": "slug",
             "docs": [
-              "slug, max 50 chars (50 + 4)"
+              "slug, max 50 chars (4 + 50)"
             ],
             "type": "string"
           },
           {
             "name": "name",
             "docs": [
-              "name of the project, max 50 chars (50 + 4)"
+              "name of the project, max 50 chars (4 + 50)"
             ],
             "type": "string"
           },
@@ -1372,12 +1531,21 @@ export type Raffle = {
             "type": "bool"
           },
           {
-            "name": "theme",
+            "name": "logo",
             "docs": [
-              "the theme of the raffler (1 + 32)"
+              "optional logo (1 + 4 + 52)"
             ],
             "type": {
-              "option": "publicKey"
+              "option": "string"
+            }
+          },
+          {
+            "name": "bg",
+            "docs": [
+              "optional bg (1 + 4 + 52)"
+            ],
+            "type": {
+              "option": "string"
             }
           },
           {
@@ -1454,6 +1622,35 @@ export type Raffle = {
               {
                 "name": "collection",
                 "type": "publicKey"
+              }
+            ]
+          },
+          {
+            "name": "Cnft",
+            "fields": [
+              {
+                "name": "collection",
+                "type": "publicKey"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "PrizeType",
+      "type": {
+        "kind": "enum",
+        "variants": [
+          {
+            "name": "Nft"
+          },
+          {
+            "name": "Token",
+            "fields": [
+              {
+                "name": "amount",
+                "type": "u64"
               }
             ]
           }
@@ -1701,6 +1898,21 @@ export type Raffle = {
       "code": 6047,
       "name": "UriRequired",
       "msg": "URI to offchain log is required when concluding a raffle"
+    },
+    {
+      "code": 6048,
+      "name": "UnexpectedStakerAccount",
+      "msg": "Staker account unexpected when unlinking"
+    },
+    {
+      "code": 6049,
+      "name": "LogoTooLong",
+      "msg": "Logo URI max length 63"
+    },
+    {
+      "code": 6050,
+      "name": "BgTooLong",
+      "msg": "Bg URI max length 63"
     }
   ]
 };
@@ -1750,6 +1962,45 @@ export const IDL: Raffle = {
       ]
     },
     {
+      "name": "updateProgramConfig",
+      "accounts": [
+        {
+          "name": "programConfig",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "program",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "programData",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "authority",
+          "isMut": true,
+          "isSigner": true
+        }
+      ],
+      "args": [
+        {
+          "name": "raffleFee",
+          "type": {
+            "option": "u64"
+          }
+        },
+        {
+          "name": "proceedsShare",
+          "type": {
+            "option": "u16"
+          }
+        }
+      ]
+    },
+    {
       "name": "init",
       "accounts": [
         {
@@ -1793,6 +2044,18 @@ export const IDL: Raffle = {
         {
           "name": "slug",
           "type": "string"
+        },
+        {
+          "name": "logo",
+          "type": {
+            "option": "string"
+          }
+        },
+        {
+          "name": "bg",
+          "type": {
+            "option": "string"
+          }
         }
       ]
     },
@@ -1898,6 +2161,12 @@ export const IDL: Raffle = {
         }
       ],
       "args": [
+        {
+          "name": "prizeType",
+          "type": {
+            "defined": "PrizeType"
+          }
+        },
         {
           "name": "numTickets",
           "type": {
@@ -2413,6 +2682,12 @@ export const IDL: Raffle = {
         {
           "name": "uri",
           "type": "string"
+        },
+        {
+          "name": "priorityFee",
+          "type": {
+            "option": "u64"
+          }
         }
       ]
     },
@@ -2854,6 +3129,93 @@ export const IDL: Raffle = {
           "type": "string"
         }
       ]
+    },
+    {
+      "name": "deleteRaffler",
+      "accounts": [
+        {
+          "name": "programConfig",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "raffler",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "authority",
+          "isMut": true,
+          "isSigner": true
+        },
+        {
+          "name": "program",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "programData",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "systemProgram",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "updateRaffler",
+      "accounts": [
+        {
+          "name": "raffler",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "authority",
+          "isMut": false,
+          "isSigner": true
+        },
+        {
+          "name": "treasury",
+          "isMut": false,
+          "isSigner": false,
+          "isOptional": true
+        },
+        {
+          "name": "staker",
+          "isMut": false,
+          "isSigner": false,
+          "isOptional": true
+        }
+      ],
+      "args": [
+        {
+          "name": "name",
+          "type": {
+            "option": "string"
+          }
+        },
+        {
+          "name": "logo",
+          "type": {
+            "option": "string"
+          }
+        },
+        {
+          "name": "bg",
+          "type": {
+            "option": "string"
+          }
+        },
+        {
+          "name": "unlinkStaker",
+          "type": "bool"
+        }
+      ]
     }
   ],
   "accounts": [
@@ -2939,9 +3301,18 @@ export const IDL: Raffle = {
           {
             "name": "prize",
             "docs": [
-              "mint address of the prize (32)"
+              "mint address of the prize 32"
             ],
             "type": "publicKey"
+          },
+          {
+            "name": "prizeType",
+            "docs": [
+              "type of prize (1 + 8)"
+            ],
+            "type": {
+              "defined": "PrizeType"
+            }
           },
           {
             "name": "randomness",
@@ -2960,7 +3331,7 @@ export const IDL: Raffle = {
           {
             "name": "entryType",
             "docs": [
-              "type of entry - Token or NFT (1 + 32 + 8)"
+              "type of entry - Token or NFT (1 + 8)"
             ],
             "type": {
               "defined": "EntryType"
@@ -2969,7 +3340,7 @@ export const IDL: Raffle = {
           {
             "name": "paymentType",
             "docs": [
-              "how do entrants pay for entries (1 + 8)"
+              "how do entrants pay for entries (1 + 32 + 8)"
             ],
             "type": {
               "defined": "PaymentType"
@@ -3015,7 +3386,7 @@ export const IDL: Raffle = {
           {
             "name": "uri",
             "docs": [
-              "uri link to offchain distribution log (4 + 63)"
+              "uri link to offchain entrants log (4 + 63)"
             ],
             "type": "string"
           },
@@ -3044,14 +3415,14 @@ export const IDL: Raffle = {
           {
             "name": "slug",
             "docs": [
-              "slug, max 50 chars (50 + 4)"
+              "slug, max 50 chars (4 + 50)"
             ],
             "type": "string"
           },
           {
             "name": "name",
             "docs": [
-              "name of the project, max 50 chars (50 + 4)"
+              "name of the project, max 50 chars (4 + 50)"
             ],
             "type": "string"
           },
@@ -3079,12 +3450,21 @@ export const IDL: Raffle = {
             "type": "bool"
           },
           {
-            "name": "theme",
+            "name": "logo",
             "docs": [
-              "the theme of the raffler (1 + 32)"
+              "optional logo (1 + 4 + 52)"
             ],
             "type": {
-              "option": "publicKey"
+              "option": "string"
+            }
+          },
+          {
+            "name": "bg",
+            "docs": [
+              "optional bg (1 + 4 + 52)"
+            ],
+            "type": {
+              "option": "string"
             }
           },
           {
@@ -3161,6 +3541,35 @@ export const IDL: Raffle = {
               {
                 "name": "collection",
                 "type": "publicKey"
+              }
+            ]
+          },
+          {
+            "name": "Cnft",
+            "fields": [
+              {
+                "name": "collection",
+                "type": "publicKey"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "PrizeType",
+      "type": {
+        "kind": "enum",
+        "variants": [
+          {
+            "name": "Nft"
+          },
+          {
+            "name": "Token",
+            "fields": [
+              {
+                "name": "amount",
+                "type": "u64"
               }
             ]
           }
@@ -3408,6 +3817,21 @@ export const IDL: Raffle = {
       "code": 6047,
       "name": "UriRequired",
       "msg": "URI to offchain log is required when concluding a raffle"
+    },
+    {
+      "code": 6048,
+      "name": "UnexpectedStakerAccount",
+      "msg": "Staker account unexpected when unlinking"
+    },
+    {
+      "code": 6049,
+      "name": "LogoTooLong",
+      "msg": "Logo URI max length 63"
+    },
+    {
+      "code": 6050,
+      "name": "BgTooLong",
+      "msg": "Bg URI max length 63"
     }
   ]
 };

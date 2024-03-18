@@ -76,7 +76,9 @@ pub struct DrawWinner<'info> {
 pub fn draw_winner_handler(
     ctx: Context<DrawWinner>,
     uri: String,
+    priority_fee: Option<u64>,
 ) -> anchor_lang::prelude::Result<()> {
+    let priority_fee = priority_fee.unwrap_or(100);
     let current_time = Clock::get().unwrap().unix_timestamp;
     let raffle = &ctx.accounts.raffle;
     let entrants = &ctx.accounts.entrants;
@@ -113,7 +115,7 @@ pub fn draw_winner_handler(
         },
         Some(TransactionOptions {
             compute_units: Some(1_000_000),
-            compute_unit_price: Some(100),
+            compute_unit_price: Some(priority_fee),
         }),
     )?;
 

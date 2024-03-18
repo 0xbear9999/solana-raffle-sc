@@ -1,12 +1,14 @@
 import * as anchor from "@coral-xyz/anchor"
 import { MPL_TOKEN_AUTH_RULES_PROGRAM_ID } from "@metaplex-foundation/mpl-token-auth-rules"
 import {
+  DigitalAssetWithToken,
   MPL_TOKEN_METADATA_PROGRAM_ID,
   TokenStandard,
   fetchDigitalAsset,
+  fetchDigitalAssetWithToken,
 } from "@metaplex-foundation/mpl-token-metadata"
 import { RandomnessService } from "@switchboard-xyz/solana-randomness-service"
-import { getSysvar, setComputeUnitLimit, setComputeUnitPrice } from "@metaplex-foundation/mpl-toolbox"
+import { fetchMint, getSysvar, setComputeUnitLimit, setComputeUnitPrice } from "@metaplex-foundation/mpl-toolbox"
 import ConfettiExplosion from "react-confetti-explosion"
 import {
   PublicKey,
@@ -33,6 +35,9 @@ import {
   Tabs,
   cn,
   Pagination,
+  Accordion,
+  AccordionItem,
+  Link,
 } from "@nextui-org/react"
 
 import { useLoaderData, useNavigate, useOutletContext } from "@remix-run/react"
@@ -49,29 +54,46 @@ import {
   FEES_WALLET,
   findProgramConfigPda,
   findProgramDataAddress,
-  findRafflePda,
   getTokenAccount,
   getTokenRecordPda,
   nativeMint,
 } from "~/helpers/pdas"
-import { Entrants, Raffle, RaffleState, RaffleWithPublicKeyAndEntrants, RafflerWithPublicKey } from "~/types/types"
+import {
+  Entrants,
+  Raffle,
+  RaffleState,
+  RaffleWithPublicKeyAndEntrants,
+  RafflerWithPublicKey,
+  TokenWithTokenInfo,
+} from "~/types/types"
 import { SparklesIcon } from "@heroicons/react/24/outline"
 import { Popover } from "~/components/Popover"
-import { getPriorityFeesForTx } from "~/helpers/helius"
+import { getPriorityFeesForAddresses, getPriorityFeesForTx } from "~/helpers/helius"
 import { usePriorityFees } from "~/context/priority-fees"
 import base58 from "bs58"
 import { LoaderFunction, json } from "@vercel/remix"
 import { raffleProgram } from "~/helpers/raffle.server"
-import { dataToPks, expandRandomness, getEntrantsArray, imageCdn, isLive, shorten } from "~/helpers"
+import {
+  dataToPks,
+  displayErrorFromLog,
+  expandRandomness,
+  getEntrantsArray,
+  imageCdn,
+  isLive,
+  shorten,
+  sleep,
+} from "~/helpers"
 import axios from "axios"
 import { useWallet } from "@solana/wallet-adapter-react"
-import { adminWallet } from "~/constants"
+import { PriorityFees, adminWallet } from "~/constants"
 import { Countdown } from "~/components/Countdown"
 import { buyTickets } from "~/helpers/txs"
 import { getRaffleState } from "~/helpers/raffle-state"
 import { RaffleStateChip } from "~/components/RaffleStateChip"
 import { BackArrow } from "~/components/BackArrow"
 import { getAccount } from "~/helpers/index.server"
+import { BN } from "bn.js"
+import { Prize } from "~/components/Prize"
 
 type TicketType = "nft" | "token" | "sol"
 
@@ -86,6 +108,8 @@ export const loader: LoaderFunction = async ({ params }) => {
     entrantsArray = dataToPks(new Uint8Array((Object.values(data) as any).slice(8 + 4 + 4)))
   } else {
     entrants = await getAccount(raffle.entrants, "entrants", raffleProgram)
+    const encoded = await getAccount(raffle.entrants, "entrants", raffleProgram, false)
+    entrantsArray = dataToPks(new Uint8Array((encoded as any).slice(8 + 4 + 4)))
   }
 
   return json({
@@ -105,6 +129,7 @@ type Entrant = {
 }
 
 export default function SingleRaffle() {
+  const [prizeToken, setPrizeToken] = useState<DigitalAssetWithToken | null>(null)
   const [showConfetti, setShowConfetti] = useState(false)
   const interval = useRef<ReturnType<typeof setInterval>>()
   const { digitalAssets, fetching } = useDigitalAssets()
@@ -153,8 +178,10 @@ export default function SingleRaffle() {
     }
 
     const id = program.provider.connection.onAccountChange(raffle.publicKey, fetchAcc)
+    const id2 = program.provider.connection.onAccountChange(raffle.account.entrants, fetchAcc)
     return () => {
       program.provider.connection.removeAccountChangeListener(id)
+      program.provider.connection.removeAccountChangeListener(id2)
     }
   }, [raffle.publicKey])
 
@@ -167,7 +194,7 @@ export default function SingleRaffle() {
   useEffect(() => {
     async function getEntrants() {
       let entrantsArray: PublicKey[]
-      if (data.entrantsArray) {
+      if (raffle.account.uri) {
         entrantsArray = data.entrantsArray
       } else if (raffle.account.uri) {
         const { data } = await axios.get(raffle.account.uri)
@@ -189,7 +216,7 @@ export default function SingleRaffle() {
           key,
           wallet: shorten(key) || "",
           tickets: tickets.length,
-          chance: `${chance === Infinity ? "100" : chance.toLocaleString()}%`,
+          chance: `${chance === Infinity ? "100" : (chance > 100 ? 100 : chance).toLocaleString()}%`,
           winner: winner === key ? <SparklesIcon className="text-yellow-500" /> : null,
         }
       })
@@ -206,27 +233,11 @@ export default function SingleRaffle() {
     }
   }, [raffle.account.entrants.toBase58(), winner])
 
-  useEffect(() => {
-    if (!raffle.account.prize) {
-      setDigitalAsset(null)
-      return
-    }
-
-    ;(async () => {
-      const { data } = await axios.get<{ digitalAsset: DAS.GetAssetResponse }>(
-        `/api/get-nft/${raffle.account.prize.toBase58()}`
-      )
-
-      setDigitalAsset(data.digitalAsset)
-    })()
-  }, [raffle.account.prize.toBase58()])
-
   const program = useRaffle()
 
   useEffect(() => {
     function tick() {
       const state = getRaffleState(raffle)
-      console.log({ state, raffle })
       if (!isLive(state)) {
         clearInterval(interval.current)
       }
@@ -239,12 +250,6 @@ export default function SingleRaffle() {
       interval.current && clearInterval(interval.current)
     }
   }, [raffle.account.startTime, raffle.account.endTime, raffle.entrants?.total, raffle.entrants?.max])
-
-  // useEffect(() => {
-  //   if ([RaffleState.ended, RaffleState.cancelled, RaffleState.claimed].includes(raffleState) && interval.current) {
-  //     clearInterval(interval.current)
-  //   }
-  // }, [raffleState, interval.current])
 
   async function cancelRaffle() {
     try {
@@ -259,8 +264,10 @@ export default function SingleRaffle() {
           proceedsMint = nativeMint
         }
 
-        const prizeDa = await fetchDigitalAsset(umi, fromWeb3JsPublicKey(raffle.account.prize))
-        const isPnft = unwrapOptionRecursively(prizeDa.metadata.tokenStandard) === TokenStandard.ProgrammableNonFungible
+        const isNft = raffle.account.prizeType.nft
+        const prizeDa = isNft ? await fetchDigitalAsset(umi, fromWeb3JsPublicKey(raffle.account.prize)) : null
+        const isPnft =
+          prizeDa && unwrapOptionRecursively(prizeDa.metadata.tokenStandard) === TokenStandard.ProgrammableNonFungible
 
         let winner: PublicKey
         let winnerIndex = 0
@@ -276,18 +283,22 @@ export default function SingleRaffle() {
 
         const treasury = fromWeb3JsPublicKey(raffler.account.treasury)
 
-        const remainingAccounts: anchor.web3.AccountMeta[] = [
-          {
-            pubkey: toWeb3JsPublicKey(prizeDa.metadata.publicKey),
-            isWritable: true,
-            isSigner: false,
-          },
-          {
-            pubkey: toWeb3JsPublicKey(prizeDa.edition?.publicKey!),
-            isWritable: false,
-            isSigner: false,
-          },
-        ]
+        const remainingAccounts: anchor.web3.AccountMeta[] = []
+
+        if (prizeDa) {
+          remainingAccounts.push(
+            {
+              pubkey: toWeb3JsPublicKey(prizeDa.metadata.publicKey),
+              isWritable: true,
+              isSigner: false,
+            },
+            {
+              pubkey: toWeb3JsPublicKey(prizeDa.edition?.publicKey!),
+              isWritable: false,
+              isSigner: false,
+            }
+          )
+        }
 
         if (isPnft) {
           remainingAccounts.push(
@@ -303,6 +314,7 @@ export default function SingleRaffle() {
             }
           )
         }
+        const prizePk = fromWeb3JsPublicKey(raffle.account.prize)
         let tx = transactionBuilder()
           .add(setComputeUnitLimit(umi, { units: 500_000 }))
           .add({
@@ -319,15 +331,15 @@ export default function SingleRaffle() {
                   proceedsSource: proceedsMint ? getTokenAccount(umi, proceedsMint, data.publicKey) : null,
                   proceedsDestination: proceedsMint ? getTokenAccount(umi, proceedsMint, treasury) : null,
                   entrants: raffle.account.entrants,
-                  prize: prizeDa.publicKey,
+                  prize: prizePk,
                   treasury,
-                  prizeCustody: getTokenAccount(umi, prizeDa.publicKey, data.publicKey),
-                  prizeDestination: getTokenAccount(umi, prizeDa.publicKey, winner),
+                  prizeCustody: getTokenAccount(umi, prizePk, data.publicKey),
+                  prizeDestination: getTokenAccount(umi, prizePk, winner),
                   metadataProgram: MPL_TOKEN_METADATA_PROGRAM_ID,
                   sysvarInstructions: anchor.web3.SYSVAR_INSTRUCTIONS_PUBKEY,
                   authority: raffler.account.authority,
                   winner,
-                  authRules: unwrapOptionRecursively(prizeDa.metadata.programmableConfig)?.ruleSet || null,
+                  authRules: prizeDa ? unwrapOptionRecursively(prizeDa.metadata.programmableConfig)?.ruleSet : null,
                   authRulesProgram: isPnft ? MPL_TOKEN_AUTH_RULES_PROGRAM_ID : null,
                 })
                 .remainingAccounts(remainingAccounts)
@@ -346,7 +358,7 @@ export default function SingleRaffle() {
           tx = tx.prepend(setComputeUnitPrice(umi, { microLamports: fee }))
         }
 
-        const res = await tx.sendAndConfirm(umi, { send: { skipPreflight: true } })
+        const res = await tx.sendAndConfirm(umi)
         if (res.result.value.err) {
           throw new Error("Unable to confirm transaction")
         }
@@ -355,13 +367,13 @@ export default function SingleRaffle() {
       toast.promise(promise, {
         loading: "Cancelling raffle",
         success: "Success",
-        error: "Error cancelling raffle",
+        error: (err) => displayErrorFromLog(err, "Error cancelling raffle"),
       })
 
       await promise
       navigate("..")
     } catch (err: any) {
-      console.log(err)
+      console.error(err)
     } finally {
       setLoading(false)
     }
@@ -391,8 +403,6 @@ export default function SingleRaffle() {
           feeLevel
         )
 
-        console.log(fee)
-
         if (fee) {
           tx.prepend(setComputeUnitPrice(umi, { microLamports: fee }))
         }
@@ -403,13 +413,13 @@ export default function SingleRaffle() {
       toast.promise(promise, {
         loading: "Deleting raffle",
         success: "Deleted successfully",
-        error: "Error deleting",
+        error: (err) => displayErrorFromLog(err, "Error deleting"),
       })
 
       await promise
       navigate("..")
     } catch (err) {
-      console.log(err)
+      console.error(err)
     } finally {
       setLoading(false)
     }
@@ -444,12 +454,34 @@ export default function SingleRaffle() {
     try {
       setLoading(true)
       const promise = Promise.resolve().then(async () => {
+        const raffleAcc = await raffleProgram.account.raffle.fetch(raffle.publicKey)
+
+        if (raffle.account.uri) {
+          throw new Error("Randomness has already been requested for this raffle, please check back soon.")
+        }
         const entrantsAcc = await umi.rpc.getAccount(fromWeb3JsPublicKey(raffle.account.entrants))
         if (!entrantsAcc.exists) {
           throw new Error("Entrants account not found")
         }
-        const url = await umi.uploader.uploadJson(entrantsAcc.data)
-        console.log(url)
+
+        const uploadPromise = new Promise(async (resolve, reject) => {
+          const promise = umi.uploader.uploadJson(entrantsAcc.data)
+          const url = await Promise.race([promise, sleep(30_000)])
+          if (url) {
+            resolve(url)
+          } else {
+            reject(new Error("Timed out waiting for upload service"))
+          }
+        })
+
+        toast.promise(uploadPromise, {
+          loading: "Uploading entrants log to offchain storage",
+          success: "Uploaded successfully",
+          error: "Error uploading, please try again",
+        })
+
+        const url = await uploadPromise
+
         const randomnessService = await RandomnessService.fromProvider(program.provider)
         const requestKeypair = generateSigner(umi)
 
@@ -457,10 +489,18 @@ export default function SingleRaffle() {
           toWeb3JsPublicKey(requestKeypair.publicKey)
         )
 
+        const callbackFee = {
+          [PriorityFees.MIN]: new BN(0),
+          [PriorityFees.LOW]: new BN(100),
+          [PriorityFees.MEDIUM]: new BN(10_000),
+          [PriorityFees.HIGH]: new BN(100_000),
+          [PriorityFees.VERYHIGH]: new BN(500_000),
+        }[feeLevel]
+
         let tx = transactionBuilder().add({
           instruction: fromWeb3JsInstruction(
             await program.methods
-              .drawWinner(url)
+              .drawWinner(url as string, callbackFee)
               .accounts({
                 raffle: data.publicKey,
                 entrants: raffle.account.entrants,
@@ -489,14 +529,32 @@ export default function SingleRaffle() {
           tx = tx.prepend(setComputeUnitPrice(umi, { microLamports: fee }))
         }
 
-        await tx.sendAndConfirm(umi)
+        const sendPromise = tx.sendAndConfirm(umi)
+
+        toast.promise(sendPromise, {
+          loading: "Sending request to randomness service",
+          success: "Randomness requested",
+          error: "Error requesting randomness",
+        })
+
+        const res = await sendPromise
+        if (res.result.value.err) {
+          throw new Error("Error drawing")
+        }
+
+        toast.promise(settledRandomnessEventPromise, {
+          loading: "Awaiting randomness callback from oracle",
+          success: "Randomness received",
+          error: "Error receiving randomness, please check back soon",
+        })
+
         await settledRandomnessEventPromise
       })
 
       toast.promise(promise, {
         loading: "Drawing raffle",
         success: "Raffle drawn",
-        error: "Error drawing raffle",
+        error: (err) => displayErrorFromLog(err, "Error drawing raffle"),
       })
 
       await promise
@@ -522,8 +580,11 @@ export default function SingleRaffle() {
           proceedsMint = nativeMint
         }
 
-        const prizeDa = await fetchDigitalAsset(umi, fromWeb3JsPublicKey(raffle.account.prize))
-        const isPnft = unwrapOptionRecursively(prizeDa.metadata.tokenStandard) === TokenStandard.ProgrammableNonFungible
+        const isNft = raffle.account.prizeType.nft
+
+        const prizeDa = isNft ? await fetchDigitalAsset(umi, fromWeb3JsPublicKey(raffle.account.prize)) : null
+        const isPnft =
+          prizeDa && unwrapOptionRecursively(prizeDa.metadata.tokenStandard) === TokenStandard.ProgrammableNonFungible
 
         let winner: PublicKey
         let winnerIndex = 0
@@ -539,18 +600,22 @@ export default function SingleRaffle() {
 
         const treasury = fromWeb3JsPublicKey(raffler.account.treasury)
 
-        const remainingAccounts: anchor.web3.AccountMeta[] = [
-          {
-            pubkey: toWeb3JsPublicKey(prizeDa.metadata.publicKey),
-            isWritable: true,
-            isSigner: false,
-          },
-          {
-            pubkey: toWeb3JsPublicKey(prizeDa.edition!.publicKey),
-            isWritable: false,
-            isSigner: false,
-          },
-        ]
+        const remainingAccounts: anchor.web3.AccountMeta[] = []
+
+        if (prizeDa) {
+          remainingAccounts.push(
+            {
+              pubkey: toWeb3JsPublicKey(prizeDa.metadata.publicKey),
+              isWritable: true,
+              isSigner: false,
+            },
+            {
+              pubkey: toWeb3JsPublicKey(prizeDa.edition!.publicKey),
+              isWritable: false,
+              isSigner: false,
+            }
+          )
+        }
 
         if (isPnft) {
           remainingAccounts.push(
@@ -566,6 +631,8 @@ export default function SingleRaffle() {
             }
           )
         }
+
+        const prizePk = fromWeb3JsPublicKey(raffle.account.prize)
 
         let tx = transactionBuilder()
           .add(setComputeUnitLimit(umi, { units: 500_000 }))
@@ -583,15 +650,15 @@ export default function SingleRaffle() {
                   proceedsSource: proceedsMint ? getTokenAccount(umi, proceedsMint, rafflePk) : null,
                   proceedsDestination: proceedsMint ? getTokenAccount(umi, proceedsMint, treasury) : null,
                   entrants: raffle.account.entrants,
-                  prize: prizeDa.publicKey,
+                  prize: prizePk,
                   treasury,
-                  prizeCustody: getTokenAccount(umi, prizeDa.publicKey, rafflePk),
-                  prizeDestination: getTokenAccount(umi, prizeDa.publicKey, winner),
+                  prizeCustody: getTokenAccount(umi, prizePk, rafflePk),
+                  prizeDestination: getTokenAccount(umi, prizePk, winner),
                   metadataProgram: MPL_TOKEN_METADATA_PROGRAM_ID,
                   sysvarInstructions: anchor.web3.SYSVAR_INSTRUCTIONS_PUBKEY,
                   authority: raffler.account.authority,
                   winner,
-                  authRules: unwrapOptionRecursively(prizeDa.metadata.programmableConfig)?.ruleSet || null,
+                  authRules: prizeDa ? unwrapOptionRecursively(prizeDa.metadata.programmableConfig)?.ruleSet : null,
                   authRulesProgram: isPnft ? MPL_TOKEN_AUTH_RULES_PROGRAM_ID : null,
                 })
                 .remainingAccounts(remainingAccounts)
@@ -621,10 +688,11 @@ export default function SingleRaffle() {
       toast.promise(promise, {
         loading: isWinner ? "Claiming prize" : "Sending prize",
         success: isWinner ? "Prize claimed successfully" : "Prize sent successfully",
-        error: isWinner ? "Error claiming prize" : "Error sending prize",
+        error: (err) => displayErrorFromLog(err, isWinner ? "Error claiming prize" : "Error sending prize"),
       })
 
       await promise
+      setShowConfetti(false)
     } catch (err: any) {
       console.error(err)
     } finally {
@@ -658,7 +726,8 @@ export default function SingleRaffle() {
   return (
     <div className="flex flex-col gap-3 mt-10">
       {showConfetti && (
-        <div className="flex w-full items-center justify-center z-50">
+        <div className="flex w-full items-center justify-center z-1">
+          <h1 className="text-primary uppercase font-bold text-3xl bg-background px-3 rounded-xl">YOU WON!!</h1>
           <ConfettiExplosion
             particleCount={200}
             width={2000}
@@ -680,18 +749,19 @@ export default function SingleRaffle() {
       )}
 
       <BackArrow label="All raffles" />
-      <div className="flex gap-10">
-        <div className="w-1/3">
-          <div className="w-full aspect-square flex items-center justify-center relative">
-            {digitalAsset ? <Image src={imageCdn(digitalAsset.content?.links?.image!)} /> : <CircularProgress />}
-            <RaffleStateChip raffleState={raffleState} raffle={raffle} />
-          </div>
+      <div className="flex flex-col-reverse lg:flex-row gap-10">
+        <div className="lg:w-1/3 w-full">
+          <Prize raffle={raffle} raffleState={raffleState} />
         </div>
 
-        <Card className="w-2/3 overflow-visible">
+        <Card className="lg:w-2/3 w-full overflow-visible">
           <CardBody className="flex flex-col gap-3 overflow-visible">
             <div className="flex justify-between gap-3 items-center">
-              <h2 className="text-2xl font-bold">{digitalAsset?.content?.metadata.name || "Unnamed NFT"}</h2>
+              <h2 className="text-2xl font-bold">
+                {raffle.account.prizeType.nft
+                  ? digitalAsset?.content?.metadata.name || "Unnamed NFT"
+                  : prizeToken?.metadata.name || prizeToken?.metadata.symbol || "Unnamed token"}
+              </h2>
               <h3 className="font-bold uppercase">{collectionMetadata?.name}</h3>
             </div>
             {entrantsGrouped.length ? (
@@ -738,10 +808,44 @@ export default function SingleRaffle() {
                 <p className="font-bold">No entrants yet</p>
               </div>
             )}
+            {raffle.account.randomness && (
+              <div className="p-5 rounded-lg bg-content2">
+                <Accordion>
+                  <AccordionItem
+                    title={
+                      <div className="flex gap-1">
+                        <p>Randomness: </p>
+                        <Popover
+                          title="Solana Randomness Service"
+                          content={
+                            <p>
+                              // RAFFLE uses the{" "}
+                              <Link
+                                href="https://crates.io/crates/solana-randomness-service"
+                                target="_blank"
+                                rel="noreferrer"
+                                className="text-xs"
+                              >
+                                Solana Randomness Service
+                              </Link>{" "}
+                              to ensure decentralized and fair raffles. SRS uses a Switchboard SGX enabled oracle to
+                              provide randomness to any Solana program using a callback instruction. This ensures anyone
+                              can settle a raffle at any time with no ability to influence the results.
+                            </p>
+                          }
+                        />
+                      </div>
+                    }
+                  >
+                    <p>{JSON.stringify(raffle.account.randomness, null, 2)}</p>
+                  </AccordionItem>
+                </Accordion>
+              </div>
+            )}
           </CardBody>
 
-          <CardFooter className="flex justify-between gap-3">
-            <div>
+          <CardFooter className="flex justify-between gap-3 align-end">
+            <>
               {raffleState === RaffleState.notStarted ? (
                 <div className="flex items-end justify-start h-full">
                   <div>
@@ -761,7 +865,7 @@ export default function SingleRaffle() {
                   </div>
                 </div>
               )}
-            </div>
+            </>
 
             <div className="flex gap-3 items-end">
               {isAdmin && !raffle.account.claimed && raffle.entrants?.total === 0 && (
@@ -777,45 +881,54 @@ export default function SingleRaffle() {
               )}
 
               {raffleState == RaffleState.inProgress && (
-                <div className="flex gap-3 items-end">
-                  {raffle.account.paymentType.token && (
-                    <Input
-                      type="number"
-                      value={numTickets}
-                      onValueChange={(num) => setNumTickets(num)}
-                      label="Quantity"
-                      labelPlacement="outside"
-                      min={1}
-                      step={1}
-                    />
-                  )}
+                <div className="flex flex-col">
+                  <div className="flex justify-between">
+                    <p className="font-bold">Current entrants:</p>
+                    <p className="font-bold text-primary">
+                      {raffle.entrants?.total.toString() || 0} /{" "}
+                      {raffle.entrants?.max.toString() === "4294967295" ? "∞" : raffle.entrants?.max.toString() || 0}
+                    </p>
+                  </div>
+                  <div className="flex gap-3 items-end">
+                    {raffle.account.paymentType.token && (
+                      <Input
+                        type="number"
+                        value={numTickets}
+                        onValueChange={(num) => setNumTickets(num)}
+                        label="Quantity"
+                        labelPlacement="outside"
+                        min={1}
+                        step={1}
+                      />
+                    )}
 
-                  <Button
-                    color="primary"
-                    isDisabled={loading || !raffle.entrants}
-                    onClick={
-                      raffle.account.paymentType.nft
-                        ? toggleNftSelector
-                        : () =>
-                            buyTickets({
-                              umi,
-                              digitalAssets,
-                              program,
-                              fetching,
-                              raffle: {
-                                publicKey: new anchor.web3.PublicKey(data.publicKey),
-                                account: raffle.account,
-                              },
-                              numTickets,
-                              onStart: () => setLoading(true),
-                              onComplete: () => setLoading(false),
-                              onSuccess: () => {},
-                              feeLevel,
-                            })
-                    }
-                  >
-                    Buy ticket{["0", "1", ""].includes(numTickets) ? "" : "s"}
-                  </Button>
+                    <Button
+                      color="primary"
+                      isDisabled={!raffle.entrants}
+                      onClick={
+                        raffle.account.paymentType.nft
+                          ? toggleNftSelector
+                          : () =>
+                              buyTickets({
+                                umi,
+                                digitalAssets,
+                                program,
+                                fetching,
+                                raffle: {
+                                  publicKey: new anchor.web3.PublicKey(data.publicKey),
+                                  account: raffle.account,
+                                },
+                                numTickets,
+                                onStart: () => setLoading(true),
+                                onComplete: () => setLoading(false),
+                                onSuccess: () => {},
+                                feeLevel,
+                              })
+                      }
+                    >
+                      Buy ticket{["0", "1", ""].includes(numTickets) ? "" : "s"}
+                    </Button>
+                  </div>
                 </div>
               )}
               {raffleState === RaffleState.ended && raffle.entrants.total > 0 && (

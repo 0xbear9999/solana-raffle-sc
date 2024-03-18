@@ -22,7 +22,7 @@ export function NftSelector({
 }) {
   const [modalOpen, setModalOpen] = useState(false)
   return (
-    <div className="w-1/3">
+    <div>
       <div
         className={`group aspect-square rounded-xl border-3 border-white flex items-center justify-center bg-[image:var(--image-url)] bg-no-repeat bg-contain`}
         style={

@@ -19,6 +19,7 @@ describe("Aborted by creator", () => {
     ;[authority, raffler] = await createRaffloor("Admin actions", "admin_action")
     const prize = await createNft(umi, true, undefined, authority.publicKey)
     await createRaffle({
+      prizeType: { nft: {} },
       authority,
       entrants,
       raffler,

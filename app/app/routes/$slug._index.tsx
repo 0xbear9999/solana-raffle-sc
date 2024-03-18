@@ -34,6 +34,7 @@ import { raffleProgram } from "~/helpers/raffle.server"
 import { buyTickets } from "~/helpers/txs"
 import { RaffleState, RaffleWithPublicKey, RaffleWithPublicKeyAndEntrants, RafflerWithPublicKey } from "~/types/types"
 import { getMultipleAccounts, getProgramAccounts } from "~/helpers/index.server"
+import { Prize } from "~/components/Prize"
 
 export const loader: LoaderFunction = async ({ params, context }) => {
   const raffler = await getRafflerFromSlug(params.slug as string)
@@ -59,8 +60,6 @@ export const loader: LoaderFunction = async ({ params, context }) => {
     "entrants",
     raffleProgram
   )
-
-  console.log(entrants)
 
   return json({
     raffles: await Promise.all(
@@ -91,8 +90,6 @@ export default function Raffles() {
       entrants: r.entrants,
     }
   })
-
-  console.log(raffles)
 
   const grouped = _.groupBy(raffles, (raffle) => {
     const state = getRaffleState(raffle)
@@ -134,14 +131,14 @@ function Section({ raffles = [], label }: { raffles: RaffleWithPublicKeyAndEntra
     <div className="mb-10">
       <h3 className="text-xl font-bold">{label} raffles:</h3>
       {raffles.length ? (
-        <div className="grid gap-6 grid-cols-4 mt-10">
+        <div className="grid gap-6 lg:grid-cols-4 grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:gid-cols-5 mt-10">
           {raffles.map((raffle) => {
             return <Raffle raffle={raffle} />
           })}
         </div>
       ) : (
         <div className="flex justify-center items-center h-40">
-          <p className="font-bold">No {label.toLowerCase()} raffles</p>
+          <p className="font-bold bg-background text-xl py-2 px-4 rounded-xl">No {label.toLowerCase()} raffles</p>
         </div>
       )}
     </div>
@@ -214,9 +211,8 @@ function Raffle({ raffle: initialRaffle }: { raffle: RaffleWithPublicKeyAndEntra
     }
   }, [raffle.account.entrants])
 
-  const factor = token ? Math.pow(10, token.mint.decimals) : anchor.web3.LAMPORTS_PER_SOL
-
   const isSol = raffle.account.paymentType.token?.tokenMint.toBase58() === nativeMint
+  const factor = isSol ? anchor.web3.LAMPORTS_PER_SOL : Math.pow(10, token?.mint.decimals || 0)
 
   const interval = useRef<ReturnType<typeof setInterval>>()
 
@@ -241,10 +237,7 @@ function Raffle({ raffle: initialRaffle }: { raffle: RaffleWithPublicKeyAndEntra
   return (
     <Card>
       <Link to={`${raffle.publicKey.toBase58()}`}>
-        <div className="w-full aspect-square flex items-center justify-center relative">
-          {digitalAsset ? <Image src={imageCdn(digitalAsset.content?.links?.image!)} /> : <CircularProgress />}
-          <RaffleStateChip raffleState={raffleState} raffle={raffle} />
-        </div>
+        <Prize raffle={raffle} raffleState={raffleState} />
       </Link>
       <CardBody>
         <div className="flex flex-col gap-3">
@@ -257,7 +250,7 @@ function Raffle({ raffle: initialRaffle }: { raffle: RaffleWithPublicKeyAndEntra
             <p className="text-primary font-bold">
               {raffle.account.paymentType.nft
                 ? "1 NFT"
-                : `${raffle.account.paymentType.token?.ticketPrice?.toNumber?.() / factor} ${
+                : `${(raffle.account.paymentType.token?.ticketPrice?.toNumber?.() || 0) / factor} ${
                     isSol ? "SOL" : token?.metadata.symbol || "$TOKEN"
                   }`}
             </p>

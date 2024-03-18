@@ -34,7 +34,7 @@ export async function createRaffloor(
   const program = programPaidBy(authority)
   const raffler = findRafflerPda(authority.publicKey)
   await program.methods
-    .init(name, slug)
+    .init(name, slug, null, null)
     .accounts({
       programConfig: findProgramConfigPda(),
       raffler,
@@ -48,7 +48,10 @@ export async function createRaffloor(
 
 type EntryType = { spend: {} } | { burn: { witholdBurnProceeds: boolean } } | { stake: { minimumPeriod: anchor.BN } }
 
+type PrizeType = { nft: {} } | { token: { amount: anchor.BN } }
+
 export async function createRaffle({
+  prizeType,
   authority,
   entryType = { spend: {} },
   entrants,
@@ -63,6 +66,7 @@ export async function createRaffle({
   gatedCollection = null,
   maxEntriesPct = null,
 }: {
+  prizeType: PrizeType
   authority: KeypairSigner
   entryType: EntryType
   entrants: KeypairSigner
@@ -99,23 +103,7 @@ export async function createRaffle({
 
   tokenMint = (entryType as any).burn?.witholdBurnProceeds ? nativeMint : tokenMint
 
-  const remainingAccounts: anchor.web3.AccountMeta[] = [
-    {
-      pubkey: toWeb3JsPublicKey(prizeAcc.metadata.publicKey),
-      isWritable: true,
-      isSigner: false,
-    },
-    {
-      pubkey: toWeb3JsPublicKey(prizeAcc.edition.publicKey),
-      isWritable: false,
-      isSigner: false,
-    },
-    {
-      pubkey: anchor.web3.SYSVAR_INSTRUCTIONS_PUBKEY,
-      isWritable: false,
-      isSigner: false,
-    },
-  ]
+  const remainingAccounts: anchor.web3.AccountMeta[] = []
 
   if (gatedCollection) {
     remainingAccounts.push({
@@ -123,6 +111,26 @@ export async function createRaffle({
       isSigner: false,
       isWritable: false,
     })
+  }
+
+  if ("nft" in prizeType) {
+    remainingAccounts.push(
+      {
+        pubkey: toWeb3JsPublicKey(prizeAcc.metadata.publicKey),
+        isWritable: true,
+        isSigner: false,
+      },
+      {
+        pubkey: toWeb3JsPublicKey(prizeAcc.edition.publicKey),
+        isWritable: false,
+        isSigner: false,
+      },
+      {
+        pubkey: anchor.web3.SYSVAR_INSTRUCTIONS_PUBKEY,
+        isWritable: false,
+        isSigner: false,
+      }
+    )
   }
 
   if (isPfnt) {
@@ -155,6 +163,7 @@ export async function createRaffle({
 
   await program.methods
     .initRaffle(
+      prizeType,
       numTickets,
       entryType,
       ticketPrice ? new anchor.BN(ticketPrice.toString()) : null,
@@ -182,7 +191,7 @@ export async function createRaffle({
     .remainingAccounts(remainingAccounts)
     .preInstructions([anchor.web3.ComputeBudgetProgram.setComputeUnitLimit({ units: 500_000 })])
     .rpc()
-    .catch((err) => console.log(err))
+    .catch((err) => console.error(err))
 }
 
 export async function buyTicketsToken(
@@ -213,7 +222,12 @@ export async function buyTicketsToken(
     .rpc()
 }
 
-export async function settleRaffle(randomnessService: RandomnessService, raffle: PublicKey, expectFail?: boolean) {
+export async function settleRaffle(
+  randomnessService: RandomnessService,
+  raffle: PublicKey,
+  uri = "https://test.com",
+  expectFail?: boolean
+) {
   const raffleAcc = await adminProgram.account.raffle.fetch(raffle)
 
   const requestKeypair = anchor.web3.Keypair.generate()
@@ -224,7 +238,7 @@ export async function settleRaffle(randomnessService: RandomnessService, raffle:
   }
 
   await adminProgram.methods
-    .drawWinner()
+    .drawWinner(uri, new anchor.BN(1000))
     .accounts({
       raffle,
       entrants: raffleAcc.entrants,
@@ -288,18 +302,22 @@ export async function claimPrize(user: KeypairSigner, raffle: PublicKey, ticketI
 
   const treasury = fromWeb3JsPublicKey(rafflerAcc.treasury)
 
-  const remainingAccounts: anchor.web3.AccountMeta[] = [
-    {
-      pubkey: toWeb3JsPublicKey(prizeDa.metadata.publicKey),
-      isWritable: true,
-      isSigner: false,
-    },
-    {
-      pubkey: toWeb3JsPublicKey(prizeDa.edition.publicKey),
-      isWritable: false,
-      isSigner: false,
-    },
-  ]
+  const remainingAccounts: anchor.web3.AccountMeta[] = []
+
+  if (raffleAcc.prizeType.nft) {
+    remainingAccounts.push(
+      {
+        pubkey: toWeb3JsPublicKey(prizeDa.metadata.publicKey),
+        isWritable: true,
+        isSigner: false,
+      },
+      {
+        pubkey: toWeb3JsPublicKey(prizeDa.edition.publicKey),
+        isWritable: false,
+        isSigner: false,
+      }
+    )
+  }
 
   if (isPnft) {
     remainingAccounts.push(
@@ -323,7 +341,7 @@ export async function claimPrize(user: KeypairSigner, raffle: PublicKey, ticketI
       raffle,
       raffler: raffleAcc.raffler,
       proceedsMint,
-      feesWallet: proceedsMint ? FEES_WALLET : null,
+      feesWallet: FEES_WALLET,
       feesWalletToken: proceedsMint ? getTokenAccount(proceedsMint, FEES_WALLET) : null,
       proceedsSource: proceedsMint ? getTokenAccount(proceedsMint, raffle) : null,
       proceedsDestination: proceedsMint ? getTokenAccount(proceedsMint, treasury) : null,

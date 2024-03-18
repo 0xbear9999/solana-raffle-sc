@@ -7,9 +7,10 @@ import { useRaffle } from "~/context/raffle"
 import { getRafflerFromSlug } from "~/helpers"
 import { raffleProgram } from "~/helpers/raffle.server"
 import { stakeProgram } from "~/helpers/stake.server"
-import { Raffler, RafflerWithPublicKey } from "~/types/types"
+import { Raffler, RafflerWithPublicKey, Theme } from "~/types/types"
 import { umi } from "~/helpers/umi"
 import { getAccount } from "~/helpers/index.server"
+import { useTheme } from "~/context/theme"
 
 export const meta: MetaFunction = ({ data }: { data: any }) => {
   return [{ title: `${data.name} // RAFFLE` }]
@@ -17,9 +18,18 @@ export const meta: MetaFunction = ({ data }: { data: any }) => {
 
 export const loader: LoaderFunction = async ({ params }) => {
   const { slug } = params
-  const raffler = await getRafflerFromSlug(slug as string)
+  const raffler: RafflerWithPublicKey = await getRafflerFromSlug(slug as string)
   const staker = raffler?.account.staker ? await getAccount(raffler.account.staker, "staker", stakeProgram) : null
   const encoded = await raffleProgram.coder.accounts.encode("raffler", raffler?.account)
+
+  const theme: Theme = {
+    logo: raffler.account.logo
+      ? `https://arweave.net/${raffler.account.logo}`
+      : staker?.theme?.logos[staker.theme.logo] || null,
+    bg: raffler.account.bg
+      ? `https://arweave.net/${raffler.account.bg}`
+      : staker?.theme?.backgrounds[staker.theme.background] || null,
+  }
 
   return json({
     raffler: {
@@ -27,11 +37,12 @@ export const loader: LoaderFunction = async ({ params }) => {
       account: encoded,
     },
     name: raffler?.account.name,
-    theme: staker?.theme,
+    theme,
   })
 }
 
 export default function Raffle() {
+  const { theme } = useTheme()
   const data = useLoaderData<typeof loader>()
   const raffleProgram = useRaffle()
   const raffler: RafflerWithPublicKey = {
@@ -42,12 +53,15 @@ export default function Raffle() {
 
   const isAdmin = wallet.publicKey?.toBase58() === raffler.account.authority.toBase58()
 
-  const logo = data.theme?.logos?.[data.theme.logo]
   return (
     <div className="h-full flex flex-col gap-4 ">
       <div className="flex gap-2 justify-between align-middle">
         <Link to=".">
-          {logo ? <img src={logo} className="h-20" /> : <h3 className="text-3xl">{raffler.account.name}</h3>}
+          {theme?.logo ? (
+            <img src={theme?.logo} className="h-20" />
+          ) : (
+            <h3 className="text-3xl">{raffler.account.name}</h3>
+          )}
         </Link>
 
         {isAdmin && (

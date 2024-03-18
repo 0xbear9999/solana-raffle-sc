@@ -16,6 +16,7 @@ export async function getProgramAccounts(
       program.programId.toBase58(),
       {
         encoding: "base64",
+        commitment: "processed",
         filters: [
           {
             memcmp: program.coder.accounts.memcmp(type),
@@ -50,6 +51,7 @@ export async function getMultipleAccounts(
       addresses.map((a) => a.toBase58()),
       {
         encoding: "base64",
+        commitment: "processed",
       },
     ],
   })
@@ -65,7 +67,12 @@ export async function getMultipleAccounts(
   )
 }
 
-export async function getAccount(address: anchor.web3.PublicKey, type: string, program: anchor.Program<any>) {
+export async function getAccount(
+  address: anchor.web3.PublicKey,
+  type: string,
+  program: anchor.Program<any>,
+  decode = true
+) {
   const { data } = await axios.post(process.env.RPC_HOST!, {
     jsonrpc: "2.0",
     id: 1,
@@ -74,6 +81,7 @@ export async function getAccount(address: anchor.web3.PublicKey, type: string, p
       address,
       {
         encoding: "base64",
+        commitment: "processed",
       },
     ],
   })
@@ -82,5 +90,7 @@ export async function getAccount(address: anchor.web3.PublicKey, type: string, p
     return null
   }
 
-  return program.coder.accounts.decode(type, Buffer.from(data.result.value.data[0], "base64"))
+  return decode
+    ? program.coder.accounts.decode(type, Buffer.from(data.result.value.data[0], "base64"))
+    : Buffer.from(data.result.value.data[0], "base64")
 }

@@ -2,15 +2,16 @@ use anchor_lang::prelude::*;
 use anchor_spl::{
     associated_token::AssociatedToken,
     metadata::{mpl_token_metadata::instructions::TransferV1CpiBuilder, Metadata},
-    token::{Mint, Token, TokenAccount},
+    token::{transfer, Mint, Token, TokenAccount, Transfer},
 };
 
 use crate::{
-    state::{Entrants, EntryType, PaymentType, Raffle, Raffler},
+    state::{Entrants, EntryType, PaymentType, PrizeType, Raffle, Raffler},
     RaffleError, FEES_WALLET, NATIVE_MINT,
 };
 
 #[derive(Accounts)]
+#[instruction(prize_type: PrizeType)]
 pub struct InitRaffle<'info> {
     #[account(
         seeds = [
@@ -76,8 +77,8 @@ pub struct InitRaffle<'info> {
     pub treasury: Option<AccountInfo<'info>>,
 
     #[account(
-        mint::decimals = 0,
-        constraint = prize.supply == 1 @ RaffleError::TokenNotNFT
+        constraint = matches!(prize_type, PrizeType::Token {amount: _}) || prize.supply == 1 @ RaffleError::TokenNotNFT,
+        constraint = matches!(prize_type, PrizeType::Token {amount: _}) || prize.decimals == 0 @ RaffleError::TokenNotNFT
     )]
     pub prize: Box<Account<'info, Mint>>,
 
@@ -154,10 +155,22 @@ impl<'info> InitRaffle<'info> {
         cpi_transfer.invoke()?;
         Ok(())
     }
+
+    pub fn transfer_token_ctx(&self) -> CpiContext<'_, '_, '_, 'info, Transfer<'info>> {
+        let cpi_accounts = Transfer {
+            from: self.prize_token.as_ref().to_account_info(),
+            to: self.prize_custody.as_ref().to_account_info(),
+            authority: self.authority.to_account_info(),
+        };
+
+        let cpi_program = self.token_program.to_account_info();
+        CpiContext::new(cpi_program, cpi_accounts)
+    }
 }
 
 pub fn init_raffle_handler<'info>(
     ctx: Context<'_, '_, '_, 'info, InitRaffle<'info>>,
+    prize_type: PrizeType,
     num_tickets: Option<u32>,
     entry_type: EntryType,
     ticket_price: Option<u64>,
@@ -206,12 +219,25 @@ pub fn init_raffle_handler<'info>(
         )
     }
 
-    let prize_metadata = next_account_info(remaining_accounts)?;
-    let prize_master_edition = next_account_info(remaining_accounts)?;
-
-    let sysvar_instructions = next_account_info(remaining_accounts)?;
-
     let gated_collection = if is_gated {
+        Some(next_account_info(remaining_accounts)?)
+    } else {
+        None
+    };
+
+    let prize_metadata = if prize_type == PrizeType::Nft {
+        Some(next_account_info(remaining_accounts)?)
+    } else {
+        None
+    };
+
+    let prize_master_edition = if prize_type == PrizeType::Nft {
+        Some(next_account_info(remaining_accounts)?)
+    } else {
+        None
+    };
+
+    let sysvar_instructions = if prize_type == PrizeType::Nft {
         Some(next_account_info(remaining_accounts)?)
     } else {
         None
@@ -269,6 +295,7 @@ pub fn init_raffle_handler<'info>(
     ***raffle = Raffle::init(
         ctx.accounts.raffler.key(),
         ctx.accounts.prize.key(),
+        prize_type,
         entry_type,
         payment_type,
         ctx.accounts.entrants.key(),
@@ -283,13 +310,16 @@ pub fn init_raffle_handler<'info>(
     entrants.total = 0;
     entrants.max = num_tickets.unwrap_or(u32::MAX);
 
-    ctx.accounts.transfer_nft(
-        prize_metadata,
-        prize_master_edition,
-        sysvar_instructions,
-        source_token_record,
-        destination_token_record,
-        auth_rules_program,
-        auth_rules,
-    )
+    match prize_type {
+        PrizeType::Nft => ctx.accounts.transfer_nft(
+            prize_metadata.expect("prize_metadata expected"),
+            prize_master_edition.expect("prize_master_edition expected"),
+            sysvar_instructions.expect("sysvar_instructions expected"),
+            source_token_record,
+            destination_token_record,
+            auth_rules_program,
+            auth_rules,
+        ),
+        PrizeType::Token { amount } => transfer(ctx.accounts.transfer_token_ctx(), amount),
+    }
 }

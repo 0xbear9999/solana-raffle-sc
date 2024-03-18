@@ -29,6 +29,7 @@ describe("Token burn raffle", () => {
 
   it("can create a token burn raffle, with unlimited entries paid by entrants", async () => {
     await createRaffle({
+      prizeType: { nft: {} },
       authority,
       raffler,
       entrants,

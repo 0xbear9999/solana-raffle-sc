@@ -43,6 +43,7 @@ describe("pNFT raffle with pnfts as currency", () => {
 
   it("can create a raffle", async () => {
     await createRaffle({
+      prizeType: { nft: {} },
       authority,
       raffler,
       entrants,
@@ -73,7 +74,7 @@ describe("pNFT raffle with pnfts as currency", () => {
 
   it("cannot draw a winner if raffle not ended", async () => {
     await expectFail(
-      () => settleRaffle(randomnessService, raffle, true),
+      () => settleRaffle(randomnessService, raffle, undefined, true),
       (err) => assertErrorCode(err, "RaffleNotEnded")
     )
   })
@@ -93,7 +94,7 @@ describe("pNFT raffle with pnfts as currency", () => {
 
   it("cannot draw a winner if one has already been drawn", async () => {
     await expectFail(
-      () => settleRaffle(randomnessService, raffle, true),
+      () => settleRaffle(randomnessService, raffle, undefined, true),
       (err) => assertErrorCode(err, "WinnerAlreadyDrawn")
     )
   })

@@ -7,6 +7,7 @@ mod state;
 mod utils;
 
 use self::state::EntryType;
+use self::state::PrizeType;
 use instructions::*;
 
 pub const NATIVE_MINT: Pubkey = pubkey!("So11111111111111111111111111111111111111112");
@@ -26,12 +27,27 @@ pub mod raffle {
         init_program_config_handler(ctx, raffle_fee, proceeds_share)
     }
 
-    pub fn init(ctx: Context<Init>, name: String, slug: String) -> Result<()> {
-        init_handler(ctx, name, slug)
+    pub fn update_program_config(
+        ctx: Context<UpdateProgramConfig>,
+        raffle_fee: Option<u64>,
+        proceeds_share: Option<u16>,
+    ) -> Result<()> {
+        update_program_config_handler(ctx, raffle_fee, proceeds_share)
+    }
+
+    pub fn init(
+        ctx: Context<Init>,
+        name: String,
+        slug: String,
+        logo: Option<String>,
+        bg: Option<String>,
+    ) -> Result<()> {
+        init_handler(ctx, name, slug, logo, bg)
     }
 
     pub fn init_raffle<'info>(
         ctx: Context<'_, '_, '_, 'info, InitRaffle<'info>>,
+        prize_type: PrizeType,
         num_tickets: Option<u32>,
         entry_type: EntryType,
         ticket_price: Option<u64>,
@@ -42,6 +58,7 @@ pub mod raffle {
     ) -> Result<()> {
         init_raffle_handler(
             ctx,
+            prize_type,
             num_tickets,
             entry_type,
             ticket_price,
@@ -67,8 +84,12 @@ pub mod raffle {
         buy_ticket_burn_nft_handler(ctx)
     }
 
-    pub fn draw_winner(ctx: Context<DrawWinner>, uri: String) -> Result<()> {
-        draw_winner_handler(ctx, uri)
+    pub fn draw_winner(
+        ctx: Context<DrawWinner>,
+        uri: String,
+        priority_fee: Option<u64>,
+    ) -> Result<()> {
+        draw_winner_handler(ctx, uri, priority_fee)
     }
 
     pub fn consume_randomness(ctx: Context<ConsumeRandomness>, result: Vec<u8>) -> Result<()> {
@@ -96,6 +117,20 @@ pub mod raffle {
 
     pub fn set_entrants_uri(ctx: Context<SetEntrantsUri>, uri: String) -> Result<()> {
         set_entrants_uri_handler(ctx, uri)
+    }
+
+    pub fn delete_raffler(ctx: Context<DeleteRaffler>) -> Result<()> {
+        delete_raffler_handler(ctx)
+    }
+
+    pub fn update_raffler(
+        ctx: Context<UpdateRaffler>,
+        name: Option<String>,
+        logo: Option<String>,
+        bg: Option<String>,
+        unlink_staker: bool,
+    ) -> Result<()> {
+        update_raffler_hander(ctx, name, logo, bg, unlink_staker)
     }
 }
 
@@ -197,4 +232,10 @@ pub enum RaffleError {
     CannotBurnSOL,
     #[msg("URI to offchain log is required when concluding a raffle")]
     UriRequired,
+    #[msg("Staker account unexpected when unlinking")]
+    UnexpectedStakerAccount,
+    #[msg("Logo URI max length 63")]
+    LogoTooLong,
+    #[msg("Bg URI max length 63")]
+    BgTooLong,
 }

@@ -75,9 +75,16 @@ export function TokenSelector({
                           onClose()
                         }}
                       >
-                        <TableCell>{token.content.metadata.name}</TableCell>
+                        <TableCell>
+                          {token.content?.metadata.name ||
+                            token.content?.metadata.symbol ||
+                            token.token_info.symbol ||
+                            "Unknown token"}
+                        </TableCell>
                         <TableCell key="address">{shorten(token.id)}</TableCell>
-                        <TableCell key="balance">{token.token_info.balance}</TableCell>
+                        <TableCell key="balance">
+                          {(token.token_info.balance / Math.pow(10, token.token_info.decimals)).toLocaleString()}
+                        </TableCell>
                         <TableCell>${token.token_info?.price_info?.price_per_token}</TableCell>
                         <TableCell>${token.token_info?.price_info?.total_price}</TableCell>
                       </TableRow>

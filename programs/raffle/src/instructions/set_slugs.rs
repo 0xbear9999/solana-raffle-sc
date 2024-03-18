@@ -10,7 +10,7 @@ pub struct SetSlugs<'info> {
         seeds = [
             b"program-config"
         ],
-        realloc = ProgramConfig::LEN + 50 * slugs.len(),
+        realloc = ProgramConfig::LEN + (50 + 4) * slugs.len(),
         realloc::payer = authority,
         realloc::zero = false,
         bump = program_config.bump

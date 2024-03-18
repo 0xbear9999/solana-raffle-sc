@@ -36,6 +36,7 @@ describe("NFT gated raffles", () => {
     it("can create an NFT gated raffle", async () => {
       const prize = await createNft(umi, true, undefined, authority.publicKey)
       await createRaffle({
+        prizeType: { nft: {} },
         authority,
         entrants,
         raffler,
@@ -109,6 +110,7 @@ describe("NFT gated raffles", () => {
     it("can create an NFT gated raffle", async () => {
       const prize = await createNft(umi, true, undefined, authority.publicKey)
       await createRaffle({
+        prizeType: { nft: {} },
         authority,
         entrants,
         raffler,
@@ -177,6 +179,7 @@ describe("NFT gated raffles", () => {
     it("can create an NFT gated raffle", async () => {
       const prize = await createNft(umi, true, undefined, authority.publicKey)
       await createRaffle({
+        prizeType: { nft: {} },
         authority,
         entrants,
         raffler,

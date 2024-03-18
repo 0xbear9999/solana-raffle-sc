@@ -33,6 +33,7 @@ describe("pNFT burn", () => {
   it("can create an NFT burn raffle", async () => {
     const prize = await createNft(umi, true, undefined, authority.publicKey)
     await createRaffle({
+      prizeType: { nft: {} },
       authority,
       raffler,
       entrants,
@@ -59,7 +60,7 @@ describe("pNFT burn", () => {
 
   it("Cannot end the raffle", async () => {
     await expectFail(
-      () => settleRaffle(randomnessService, raffle, true),
+      () => settleRaffle(randomnessService, raffle, undefined, true),
       (err) => assertErrorCode(err, "RaffleNotEnded")
     )
   })
@@ -77,7 +78,6 @@ describe("pNFT burn", () => {
     await settleRaffle(randomnessService, raffle)
     const balanceAfter = await umi.rpc.getBalance(umi.identity.publicKey)
 
-    console.log("Cost: ", balanceBefore.basisPoints - balanceAfter.basisPoints)
     const raffleAcc = await adminProgram.account.raffle.fetch(raffle)
     assert.ok(raffleAcc.randomness, "Expected randomness to be set")
   })

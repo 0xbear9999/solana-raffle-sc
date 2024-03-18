@@ -16,7 +16,7 @@ impl ProgramConfig {
     pub const LEN: usize = 8 + 8 + 2 + 4 + 1;
 
     pub fn current_len(&self) -> usize {
-        ProgramConfig::LEN + 50 * self.slugs.len()
+        ProgramConfig::LEN + (4 + 50) * self.slugs.len()
     }
 
     pub fn init(raffle_fee: u64, proceeds_share: u16, bump: u8) -> Self {

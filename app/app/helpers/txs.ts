@@ -19,6 +19,7 @@ import base58 from "bs58"
 import { PriorityFees } from "~/constants"
 import toast from "react-hot-toast"
 import { MPL_TOKEN_AUTH_RULES_PROGRAM_ID } from "@metaplex-foundation/mpl-token-auth-rules"
+import { displayErrorFromLog } from "."
 
 export async function buyTickets({
   umi,
@@ -47,6 +48,8 @@ export async function buyTickets({
 }) {
   try {
     onStart()
+    const num = numTickets ? Number(numTickets) : 1
+
     const promise = Promise.resolve().then(async () => {
       let instruction: TransactionInstruction | null = null
 
@@ -69,7 +72,7 @@ export async function buyTickets({
       if (raffle.account.paymentType.token) {
         const tokenMint = fromWeb3JsPublicKey(raffle.account.paymentType.token.tokenMint)
         instruction = await program.methods
-          .buyTicketsToken(numTickets ? Number(numTickets) : 1)
+          .buyTicketsToken(num)
           .accounts({
             raffler: raffle.account.raffler,
             raffle: raffle.publicKey,
@@ -173,9 +176,9 @@ export async function buyTickets({
     })
 
     toast.promise(promise, {
-      loading: "Buying tickets",
+      loading: `Buying ${num} ticket${num === 1 ? "" : "s"}`,
       success: "Success",
-      error: (err) => err.message || "Error buying tickets",
+      error: (err) => displayErrorFromLog(err, "Error buying tickets"),
     })
 
     await promise

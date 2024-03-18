@@ -11,7 +11,7 @@ export default {
       fs: true,
     },
   },
-  serverDependenciesToBundle: ["lodash", "js-sha3"],
+  serverDependenciesToBundle: ["lodash", "js-sha3", "react-dropzone"],
   // appDirectory: "app",
   // assetsBuildDirectory: "public/build",
   // publicPath: "/build/",

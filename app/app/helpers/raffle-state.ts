@@ -6,8 +6,6 @@ export function getRaffleState(raffle: RaffleWithPublicKeyAndEntrants) {
 
   const date = Date.now() / 1000
 
-  console.log(!raffle.entrants && !raffle.account.uri)
-
   if (!raffle.entrants && !raffle.account.uri && raffle.account.claimed) {
     return RaffleState.cancelled
   } else if (raffle.account.claimed) {

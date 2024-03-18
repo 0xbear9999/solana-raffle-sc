@@ -6,8 +6,10 @@ import { DigitalAssetsProvider } from "~/context/digital-assets"
 import { PriorityFeesProvider } from "~/context/priority-fees"
 import { RaffleProvider } from "~/context/raffle"
 import { StakeProvider } from "~/context/stake"
+import { ThemeProvider } from "~/context/theme"
+import { Theme } from "~/types/types"
 
-export function Providers({ children, rpcHost }: PropsWithChildren<{ rpcHost: string }>) {
+export function Providers({ children, rpcHost, theme }: PropsWithChildren<{ rpcHost: string; theme?: Theme }>) {
   return (
     <NextUIProvider>
       <WalletProviders rpcHost={rpcHost}>
@@ -15,7 +17,9 @@ export function Providers({ children, rpcHost }: PropsWithChildren<{ rpcHost: st
           <DigitalAssetsProvider>
             <PriorityFeesProvider>
               <RaffleProvider>
-                <StakeProvider>{children}</StakeProvider>
+                <ThemeProvider theme={theme}>
+                  <StakeProvider>{children}</StakeProvider>
+                </ThemeProvider>
               </RaffleProvider>
             </PriorityFeesProvider>
           </DigitalAssetsProvider>

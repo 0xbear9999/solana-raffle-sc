@@ -243,6 +243,7 @@ pub fn buy_tickets_token_handler(ctx: Context<BuyTicketsToken>, amount: u32) -> 
             }
         }
         PaymentType::Nft { collection: _ } => return err!(RaffleError::TokenInstruction),
+        _ => {}
     }
 
     add_entrants(

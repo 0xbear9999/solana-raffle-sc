@@ -2,13 +2,15 @@ import * as anchor from "@coral-xyz/anchor"
 import { DigitalAsset } from "@metaplex-foundation/mpl-token-metadata"
 import { KeypairSigner, PublicKey, generateSigner, sol, publicKey } from "@metaplex-foundation/umi"
 import { assert } from "chai"
-import _ from "lodash"
+import _, { chunk } from "lodash"
 import { randomnessService, adminProgram, createNewUser } from "../helper"
 import { createRaffle, buyTicketsToken, settleRaffle, claimPrize, createRaffloor } from "../helpers/instructions"
 import { findRafflePda, nativeMint, getTokenAccount } from "../helpers/pdas"
 import { umi } from "../helpers/umi"
-import { TX_FEE, expectFail, assertErrorCode, getTokenAmount } from "../helpers/utils"
+import { TX_FEE, expectFail, assertErrorCode, getTokenAmount, FEES_WALLET } from "../helpers/utils"
 import { createNft } from "../helpers/create-nft"
+import { tokenAmount } from "@metaplex-foundation/umi/dist/types/Amount"
+import { createToken } from "../helpers/create-token"
 
 describe("SOL NFT raffle", () => {
   let prize: DigitalAsset
@@ -27,6 +29,7 @@ describe("SOL NFT raffle", () => {
 
   it("can create a new raffle", async () => {
     await createRaffle({
+      prizeType: { nft: {} },
       authority,
       raffler,
       entrants,
@@ -124,16 +127,21 @@ describe("SOL NFT raffle", () => {
     const entrantsAccBal = await umi.rpc.getBalance(entrants.publicKey)
     const tokenAccountSize = (await umi.rpc.getBalance(getTokenAccount(prize.publicKey, raffle))).basisPoints
     const authBalBefore = await umi.rpc.getBalance(authority.publicKey)
-
+    const feesBalBefore = await umi.rpc.getBalance(FEES_WALLET)
     const payerBalBefore = await umi.rpc.getBalance(user.publicKey)
+    const proceeds = await getTokenAmount(nativeMint, raffle)
+    const authProceedsBefore = await getTokenAmount(nativeMint, authority.publicKey)
+    const feesProceedsBefore = await getTokenAmount(nativeMint, FEES_WALLET)
 
     await claimPrize(user, raffle)
 
     const payerBalAfter = await umi.rpc.getBalance(user.publicKey)
 
     const authBalAfter = await umi.rpc.getBalance(authority.publicKey)
-
+    const feesBalAfter = await umi.rpc.getBalance(FEES_WALLET)
     const tokenBalance = await getTokenAmount(prize.publicKey, user.publicKey)
+    const authProceedsAfter = await getTokenAmount(nativeMint, authority.publicKey)
+    const feesProceedsAfter = await getTokenAmount(nativeMint, FEES_WALLET)
 
     assert.equal(tokenBalance, 1n, "Expected winner to have claimed token")
 
@@ -142,8 +150,26 @@ describe("SOL NFT raffle", () => {
 
     assert.equal(
       authBalAfter.basisPoints - authBalBefore.basisPoints,
-      entrantsAccBal.basisPoints + tokenAccountSize * 2n,
-      "Expected rent from entrants, prize custody and proceeds account to be transferred to authority"
+      tokenAccountSize * 2n,
+      "Expected rent prize custody to be transferred to authority"
+    )
+
+    assert.equal(
+      feesBalAfter.basisPoints - feesBalBefore.basisPoints,
+      entrantsAccBal.basisPoints,
+      "Expected entrants rent to be transferred to fees wallet"
+    )
+
+    assert.equal(
+      authProceedsAfter - authProceedsBefore,
+      (proceeds * 9500n) / 10000n,
+      "Expected 95% of proceeds to be paid to auth"
+    )
+
+    assert.equal(
+      feesProceedsAfter - feesProceedsBefore,
+      (proceeds * 500n) / 10000n,
+      "Expected 5% of proceeds to be paid to auth"
     )
 
     assert.equal(

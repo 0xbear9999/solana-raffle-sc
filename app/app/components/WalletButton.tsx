@@ -5,11 +5,22 @@ import { useWalletModal } from "@solana/wallet-adapter-react-ui"
 import { useEffect, useState } from "react"
 import { toast } from "react-hot-toast"
 
-import { Button, Listbox, ListboxItem, Modal, ModalBody, ModalContent } from "@nextui-org/react"
+import { Button, Listbox, ListboxItem, Modal, ModalBody, ModalContent, ModalHeader } from "@nextui-org/react"
 import { shorten } from "~/helpers"
-import { ArrowLeftStartOnRectangleIcon, DocumentDuplicateIcon, WalletIcon } from "@heroicons/react/24/outline"
+import {
+  ArrowLeftStartOnRectangleIcon,
+  Cog6ToothIcon,
+  DocumentDuplicateIcon,
+  WalletIcon,
+} from "@heroicons/react/24/outline"
+import { useRaffle } from "~/context/raffle"
+import { Link, useMatches } from "@remix-run/react"
+import { Title } from "./Title"
+import { Raffler } from "~/types/types"
 
-export const WalletButton = ({ authority }: { authority?: string }) => {
+export const WalletButton = () => {
+  const program = useRaffle()
+  const matches = useMatches()
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null)
   const open = Boolean(anchorEl)
   const wallet = useWallet()
@@ -54,16 +65,35 @@ export const WalletButton = ({ authority }: { authority?: string }) => {
     handleClose()
   }
 
+  function onAdminClick() {
+    handleClose()
+  }
+
+  let raffler = (matches.find((match: any) => match.data !== null && "raffler" in match.data)?.data as any)?.raffler
+
+  const account: Raffler | null = raffler
+    ? program.coder.accounts.decode("raffler", Buffer.from(raffler.account))
+    : null
+  const authority = account?.authority.toBase58()
+
   const isAdmin = wallet.publicKey?.toBase58() === authority
-  // const isXs = useMediaQuery((theme: Theme) => theme.breakpoints.down("xs"))
+
+  const icons = {
+    copy: <DocumentDuplicateIcon className="w-5" />,
+    "change-wallet": <WalletIcon className="w-5" />,
+    disconnect: <ArrowLeftStartOnRectangleIcon className="w-5" />,
+    admin: <Cog6ToothIcon className="w-5" />,
+  }
 
   return (
     <>
       <div>
-        <Button onClick={wallet.connected ? handleClick : toggleVisible} color="primary">
+        <Button onClick={wallet.connected ? handleClick : toggleVisible} color="primary" variant="bordered">
           <div className="flex gap-1 items-center">
             <WalletIcon className="w-5" />
-            <p>{wallet.connected ? shorten(wallet.publicKey?.toBase58() as string) : "Connect"}</p>
+            <p className="sm:hidden md:flex flex">
+              {wallet.connected ? shorten(wallet.publicKey?.toBase58() as string) : "Connect"}
+            </p>
           </div>
         </Button>
       </div>
@@ -75,6 +105,21 @@ export const WalletButton = ({ authority }: { authority?: string }) => {
         <ModalContent className="absolute top-0 right-2">
           <ModalBody>
             <Listbox
+              items={[
+                {
+                  key: "copy",
+                  label: "Copy",
+                },
+                {
+                  key: "change-wallet",
+                  label: "Change wallet",
+                },
+                {
+                  key: "disconnect",
+                  label: "Disconnect",
+                },
+                ...(isAdmin ? [{ key: "admin", label: "Admin" }] : []),
+              ]}
               aria-label="Wallet"
               onAction={(key) => {
                 switch (key) {
@@ -87,48 +132,22 @@ export const WalletButton = ({ authority }: { authority?: string }) => {
                   case "disconnect":
                     onDisconnectClick()
                     break
+                  case "admin":
+                    onAdminClick()
+                    break
                 }
               }}
             >
-              <ListboxItem key="copy" startContent={<DocumentDuplicateIcon className="w-5" />}>
-                Copy address
-              </ListboxItem>
-              <ListboxItem key="change-wallet" startContent={<WalletIcon className="w-5" />}>
-                Change wallet
-              </ListboxItem>
-              <ListboxItem
-                key="disconnect"
-                className="text-danger"
-                color="danger"
-                startContent={<ArrowLeftStartOnRectangleIcon className="w-5" />}
-              >
-                Disconnect
-              </ListboxItem>
-
-              {/* <MenuItem onClick={copyAddress}>
-          <ListItemIcon>
-            <ContentCopy />
-          </ListItemIcon>
-          <ListItemText>
-            <Link underline="none">Copy address</Link>
-          </ListItemText>
-        </MenuItem>
-        <MenuItem onClick={handleChangeWallet}>
-          <ListItemIcon>
-            <WalletIcon />
-          </ListItemIcon>
-          <ListItemText>
-            <Link underline="none">Change wallet</Link>
-          </ListItemText>
-        </MenuItem>
-        <MenuItem onClick={onDisconnectClick}>
-          <ListItemIcon>
-            <LogoutIcon />
-          </ListItemIcon>
-          <ListItemText>
-            <Link underline="none">Disconnect</Link>
-          </ListItemText>
-        </MenuItem> */}
+              {(item) => (
+                <ListboxItem
+                  key={item.key}
+                  color={item.key === "disconnect" ? "danger" : "default"}
+                  className={item.key === "disconnect" ? "text-danger" : ""}
+                  startContent={icons[item.key as keyof object]}
+                >
+                  {item.key === "admin" ? <Link to={`${account?.slug}/admin`}>{item.label}</Link> : item.label}
+                </ListboxItem>
+              )}
             </Listbox>
           </ModalBody>
         </ModalContent>

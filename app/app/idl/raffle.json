@@ -43,6 +43,45 @@
       ]
     },
     {
+      "name": "updateProgramConfig",
+      "accounts": [
+        {
+          "name": "programConfig",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "program",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "programData",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "authority",
+          "isMut": true,
+          "isSigner": true
+        }
+      ],
+      "args": [
+        {
+          "name": "raffleFee",
+          "type": {
+            "option": "u64"
+          }
+        },
+        {
+          "name": "proceedsShare",
+          "type": {
+            "option": "u16"
+          }
+        }
+      ]
+    },
+    {
       "name": "init",
       "accounts": [
         {
@@ -86,6 +125,18 @@
         {
           "name": "slug",
           "type": "string"
+        },
+        {
+          "name": "logo",
+          "type": {
+            "option": "string"
+          }
+        },
+        {
+          "name": "bg",
+          "type": {
+            "option": "string"
+          }
         }
       ]
     },
@@ -191,6 +242,12 @@
         }
       ],
       "args": [
+        {
+          "name": "prizeType",
+          "type": {
+            "defined": "PrizeType"
+          }
+        },
         {
           "name": "numTickets",
           "type": {
@@ -621,9 +678,7 @@
           "name": "randomnessService",
           "isMut": false,
           "isSigner": false,
-          "docs": [
-            "The Solana Randomness Service program."
-          ]
+          "docs": ["The Solana Randomness Service program."]
         },
         {
           "name": "randomnessRequest",
@@ -638,9 +693,7 @@
           "name": "randomnessEscrow",
           "isMut": true,
           "isSigner": false,
-          "docs": [
-            "The TokenAccount that will store the funds for the randomness request."
-          ]
+          "docs": ["The TokenAccount that will store the funds for the randomness request."]
         },
         {
           "name": "randomnessState",
@@ -655,9 +708,7 @@
           "name": "randomnessMint",
           "isMut": false,
           "isSigner": false,
-          "docs": [
-            "The token mint to use for paying for randomness requests."
-          ]
+          "docs": ["The token mint to use for paying for randomness requests."]
         },
         {
           "name": "raffle",
@@ -673,39 +724,37 @@
           "name": "payer",
           "isMut": true,
           "isSigner": true,
-          "docs": [
-            "The account that will pay for the randomness request."
-          ]
+          "docs": ["The account that will pay for the randomness request."]
         },
         {
           "name": "systemProgram",
           "isMut": false,
           "isSigner": false,
-          "docs": [
-            "The Solana System program. Used to allocate space on-chain for the randomness_request account."
-          ]
+          "docs": ["The Solana System program. Used to allocate space on-chain for the randomness_request account."]
         },
         {
           "name": "tokenProgram",
           "isMut": false,
           "isSigner": false,
-          "docs": [
-            "The Solana Token program. Used to transfer funds to the randomness escrow."
-          ]
+          "docs": ["The Solana Token program. Used to transfer funds to the randomness escrow."]
         },
         {
           "name": "associatedTokenProgram",
           "isMut": false,
           "isSigner": false,
-          "docs": [
-            "The Solana Associated Token program. Used to create the TokenAccount for the randomness escrow."
-          ]
+          "docs": ["The Solana Associated Token program. Used to create the TokenAccount for the randomness escrow."]
         }
       ],
       "args": [
         {
           "name": "uri",
           "type": "string"
+        },
+        {
+          "name": "priorityFee",
+          "type": {
+            "option": "u64"
+          }
         }
       ]
     },
@@ -1147,6 +1196,93 @@
           "type": "string"
         }
       ]
+    },
+    {
+      "name": "deleteRaffler",
+      "accounts": [
+        {
+          "name": "programConfig",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "raffler",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "authority",
+          "isMut": true,
+          "isSigner": true
+        },
+        {
+          "name": "program",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "programData",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "systemProgram",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "updateRaffler",
+      "accounts": [
+        {
+          "name": "raffler",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "authority",
+          "isMut": false,
+          "isSigner": true
+        },
+        {
+          "name": "treasury",
+          "isMut": false,
+          "isSigner": false,
+          "isOptional": true
+        },
+        {
+          "name": "staker",
+          "isMut": false,
+          "isSigner": false,
+          "isOptional": true
+        }
+      ],
+      "args": [
+        {
+          "name": "name",
+          "type": {
+            "option": "string"
+          }
+        },
+        {
+          "name": "logo",
+          "type": {
+            "option": "string"
+          }
+        },
+        {
+          "name": "bg",
+          "type": {
+            "option": "string"
+          }
+        },
+        {
+          "name": "unlinkStaker",
+          "type": "bool"
+        }
+      ]
     }
   ],
   "accounts": [
@@ -1157,16 +1293,12 @@
         "fields": [
           {
             "name": "total",
-            "docs": [
-              "the current number of entrants"
-            ],
+            "docs": ["the current number of entrants"],
             "type": "u32"
           },
           {
             "name": "max",
-            "docs": [
-              "the max nuber of entrants"
-            ],
+            "docs": ["the max nuber of entrants"],
             "type": "u32"
           }
         ]
@@ -1179,32 +1311,24 @@
         "fields": [
           {
             "name": "raffleFee",
-            "docs": [
-              "the amount in sol to set up a raffle (8)"
-            ],
+            "docs": ["the amount in sol to set up a raffle (8)"],
             "type": "u64"
           },
           {
             "name": "proceedsShare",
-            "docs": [
-              "the percentage in basis points of proceeds share (2)"
-            ],
+            "docs": ["the percentage in basis points of proceeds share (2)"],
             "type": "u16"
           },
           {
             "name": "slugs",
-            "docs": [
-              "a vector storing all slugs (4)"
-            ],
+            "docs": ["a vector storing all slugs (4)"],
             "type": {
               "vec": "string"
             }
           },
           {
             "name": "bump",
-            "docs": [
-              "the bump of the program_config account (1)"
-            ],
+            "docs": ["the bump of the program_config account (1)"],
             "type": "u8"
           }
         ]
@@ -1217,106 +1341,84 @@
         "fields": [
           {
             "name": "raffler",
-            "docs": [
-              "raffler account that owns this raffle (32)"
-            ],
+            "docs": ["raffler account that owns this raffle (32)"],
             "type": "publicKey"
           },
           {
             "name": "entrants",
-            "docs": [
-              "the account the holds the entrants array (32)"
-            ],
+            "docs": ["the account the holds the entrants array (32)"],
             "type": "publicKey"
           },
           {
             "name": "prize",
-            "docs": [
-              "mint address of the prize (32)"
-            ],
+            "docs": ["mint address of the prize 32"],
             "type": "publicKey"
           },
           {
+            "name": "prizeType",
+            "docs": ["type of prize (1 + 8)"],
+            "type": {
+              "defined": "PrizeType"
+            }
+          },
+          {
             "name": "randomness",
-            "docs": [
-              "randomness from VRF (1 + 32)"
-            ],
+            "docs": ["randomness from VRF (1 + 32)"],
             "type": {
               "option": {
-                "array": [
-                  "u8",
-                  32
-                ]
+                "array": ["u8", 32]
               }
             }
           },
           {
             "name": "entryType",
-            "docs": [
-              "type of entry - Token or NFT (1 + 32 + 8)"
-            ],
+            "docs": ["type of entry - Token or NFT (1 + 8)"],
             "type": {
               "defined": "EntryType"
             }
           },
           {
             "name": "paymentType",
-            "docs": [
-              "how do entrants pay for entries (1 + 8)"
-            ],
+            "docs": ["how do entrants pay for entries (1 + 32 + 8)"],
             "type": {
               "defined": "PaymentType"
             }
           },
           {
             "name": "gatedCollection",
-            "docs": [
-              "gate to only holders of a specific collection (1 + 32)"
-            ],
+            "docs": ["gate to only holders of a specific collection (1 + 32)"],
             "type": {
               "option": "publicKey"
             }
           },
           {
             "name": "startTime",
-            "docs": [
-              "timestamp of raffle start (8)"
-            ],
+            "docs": ["timestamp of raffle start (8)"],
             "type": "i64"
           },
           {
             "name": "endTime",
-            "docs": [
-              "timestamp of raffle end (8)"
-            ],
+            "docs": ["timestamp of raffle end (8)"],
             "type": "i64"
           },
           {
             "name": "claimed",
-            "docs": [
-              "has the prize been claimed? (1)"
-            ],
+            "docs": ["has the prize been claimed? (1)"],
             "type": "bool"
           },
           {
             "name": "maxEntrantPct",
-            "docs": [
-              "basis points of the maximum amount of tickets a single user can buy (2)"
-            ],
+            "docs": ["basis points of the maximum amount of tickets a single user can buy (2)"],
             "type": "u16"
           },
           {
             "name": "uri",
-            "docs": [
-              "uri link to offchain distribution log (4 + 63)"
-            ],
+            "docs": ["uri link to offchain entrants log (4 + 63)"],
             "type": "string"
           },
           {
             "name": "bump",
-            "docs": [
-              "bump for the raffle PDA (1)"
-            ],
+            "docs": ["bump for the raffle PDA (1)"],
             "type": "u8"
           }
         ]
@@ -1329,71 +1431,60 @@
         "fields": [
           {
             "name": "authority",
-            "docs": [
-              "The authority of the raffler (32)"
-            ],
+            "docs": ["The authority of the raffler (32)"],
             "type": "publicKey"
           },
           {
             "name": "slug",
-            "docs": [
-              "slug, max 50 chars (50 + 4)"
-            ],
+            "docs": ["slug, max 50 chars (4 + 50)"],
             "type": "string"
           },
           {
             "name": "name",
-            "docs": [
-              "name of the project, max 50 chars (50 + 4)"
-            ],
+            "docs": ["name of the project, max 50 chars (4 + 50)"],
             "type": "string"
           },
           {
             "name": "treasury",
-            "docs": [
-              "receives the raffle proceeds (32)"
-            ],
+            "docs": ["receives the raffle proceeds (32)"],
             "type": "publicKey"
           },
           {
             "name": "customDomain",
-            "docs": [
-              "optional custom domain, max 50 chars (1 + 4 + 50),"
-            ],
+            "docs": ["optional custom domain, max 50 chars (1 + 4 + 50),"],
             "type": {
               "option": "string"
             }
           },
           {
             "name": "isActive",
-            "docs": [
-              "Raffle status (1)"
-            ],
+            "docs": ["Raffle status (1)"],
             "type": "bool"
           },
           {
-            "name": "theme",
-            "docs": [
-              "the theme of the raffler (1 + 32)"
-            ],
+            "name": "logo",
+            "docs": ["optional logo (1 + 4 + 52)"],
             "type": {
-              "option": "publicKey"
+              "option": "string"
+            }
+          },
+          {
+            "name": "bg",
+            "docs": ["optional bg (1 + 4 + 52)"],
+            "type": {
+              "option": "string"
             }
           },
           {
             "name": "staker",
-            "docs": [
-              "pubkey of linked staker app (1 + 32)"
-            ],
+            "docs": ["pubkey of linked staker app (1 + 32)"],
             "type": {
               "option": "publicKey"
             }
           },
           {
             "name": "bump",
-            "docs": [
-              "bump (1)"
-            ],
+            "docs": ["bump (1)"],
             "type": "u8"
           }
         ]
@@ -1454,6 +1545,35 @@
               {
                 "name": "collection",
                 "type": "publicKey"
+              }
+            ]
+          },
+          {
+            "name": "Cnft",
+            "fields": [
+              {
+                "name": "collection",
+                "type": "publicKey"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "PrizeType",
+      "type": {
+        "kind": "enum",
+        "variants": [
+          {
+            "name": "Nft"
+          },
+          {
+            "name": "Token",
+            "fields": [
+              {
+                "name": "amount",
+                "type": "u64"
               }
             ]
           }
@@ -1701,6 +1821,21 @@
       "code": 6047,
       "name": "UriRequired",
       "msg": "URI to offchain log is required when concluding a raffle"
+    },
+    {
+      "code": 6048,
+      "name": "UnexpectedStakerAccount",
+      "msg": "Staker account unexpected when unlinking"
+    },
+    {
+      "code": 6049,
+      "name": "LogoTooLong",
+      "msg": "Logo URI max length 63"
+    },
+    {
+      "code": 6050,
+      "name": "BgTooLong",
+      "msg": "Bg URI max length 63"
     }
   ],
   "metadata": {
