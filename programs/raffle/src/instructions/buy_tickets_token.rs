@@ -201,6 +201,8 @@ pub fn buy_tickets_token_handler(ctx: Context<BuyTicketsToken>, amount: u32) -> 
                         .checked_add(cost)
                         .ok_or(RaffleError::ProgramMulError)?;
 
+                msg!("minimum_balance_for_rent_exemption {}, minimum_balance_plus_total_transfer_amount {}", minimum_balance_for_rent_exemption, minimum_balance_plus_total_transfer_amount);
+
                 if token_source.amount < minimum_balance_plus_total_transfer_amount {
                     let lamports_difference = minimum_balance_plus_total_transfer_amount
                         .checked_sub(token_source.amount)
@@ -223,6 +225,8 @@ pub fn buy_tickets_token_handler(ctx: Context<BuyTicketsToken>, amount: u32) -> 
                         ctx.accounts.sync_native_purchaser_ctx(), // .with_signer(&[&marketplace.marketplace_seeds()]),
                     )?;
 
+                    transfer(ctx.accounts.transfer_token_ctx(), cost)?;
+                } else {
                     transfer(ctx.accounts.transfer_token_ctx(), cost)?;
                 }
             } else {

@@ -19,7 +19,7 @@ import { Link, useLoaderData, useOutletContext } from "@remix-run/react"
 import { useWallet } from "@solana/wallet-adapter-react"
 import axios from "axios"
 import { DAS } from "helius-sdk"
-import _ from "lodash"
+import _, { omit } from "lodash"
 import { useEffect, useRef, useState } from "react"
 import { Countdown } from "~/components/Countdown"
 import { RaffleStateChip } from "~/components/RaffleStateChip"
@@ -32,9 +32,16 @@ import { nativeMint } from "~/helpers/pdas"
 import { getRaffleState } from "~/helpers/raffle-state"
 import { raffleProgram } from "~/helpers/raffle.server"
 import { buyTickets } from "~/helpers/txs"
-import { RaffleState, RaffleWithPublicKey, RaffleWithPublicKeyAndEntrants, RafflerWithPublicKey } from "~/types/types"
+import {
+  Entrants,
+  RaffleState,
+  RaffleWithPublicKey,
+  RaffleWithPublicKeyAndEntrants,
+  RafflerWithPublicKey,
+} from "~/types/types"
 import { getMultipleAccounts, getProgramAccounts } from "~/helpers/index.server"
 import { Prize } from "~/components/Prize"
+import { adminWallet } from "~/constants"
 
 export const loader: LoaderFunction = async ({ params, context }) => {
   const raffler = await getRafflerFromSlug(params.slug as string)
@@ -92,11 +99,13 @@ export default function Raffles() {
   })
 
   const grouped = _.groupBy(raffles, (raffle) => {
-    const state = getRaffleState(raffle)
+    const state = getRaffleState(omit(raffle, "entrants"), raffle.entrants)
     return state
   })
 
-  const isAdmin = wallet.publicKey?.toBase58() === raffler.account.authority.toBase58()
+  const isAdmin =
+    wallet.publicKey?.toBase58() === raffler.account.authority.toBase58() ||
+    wallet.publicKey?.toBase58() === adminWallet
 
   return (
     <div className="flex flex-col gap-6 mt-10">
@@ -132,8 +141,8 @@ function Section({ raffles = [], label }: { raffles: RaffleWithPublicKeyAndEntra
       <h3 className="text-xl font-bold">{label} raffles:</h3>
       {raffles.length ? (
         <div className="grid gap-6 lg:grid-cols-4 grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:gid-cols-5 mt-10">
-          {raffles.map((raffle) => {
-            return <Raffle raffle={raffle} key={raffle.publicKey.toBase58()} />
+          {raffles.map(({ entrants, ...raffle }) => {
+            return <Raffle raffle={raffle} entrants={entrants} key={raffle.publicKey.toBase58()} />
           })}
         </div>
       ) : (
@@ -145,8 +154,15 @@ function Section({ raffles = [], label }: { raffles: RaffleWithPublicKeyAndEntra
   )
 }
 
-function Raffle({ raffle: initialRaffle }: { raffle: RaffleWithPublicKeyAndEntrants }) {
+function Raffle({
+  raffle: initialRaffle,
+  entrants: initialEntrants,
+}: {
+  raffle: RaffleWithPublicKey
+  entrants: Entrants
+}) {
   const wallet = useWallet()
+  const [entrants, setEntrants] = useState<Entrants>(initialEntrants)
   const [raffle, setRaffle] = useState(initialRaffle)
   const { feeLevel } = usePriorityFees()
   const [loading, setLoading] = useState(false)
@@ -196,13 +212,10 @@ function Raffle({ raffle: initialRaffle }: { raffle: RaffleWithPublicKeyAndEntra
     }
 
     async function getEntrants() {
-      const entrantsAcc = await program.account.entrants.fetch(raffle.account.entrants)
-      setRaffle((prevState) => {
-        return {
-          ...prevState,
-          entrants: entrantsAcc,
-        }
-      })
+      const entrantsAcc = await program.account.entrants.fetchNullable(raffle.account.entrants)
+      if (entrantsAcc) {
+        setEntrants(entrantsAcc)
+      }
     }
 
     const id = raffleProgram.provider.connection.onAccountChange(raffle.account.entrants, getEntrants)
@@ -219,7 +232,7 @@ function Raffle({ raffle: initialRaffle }: { raffle: RaffleWithPublicKeyAndEntra
 
   useEffect(() => {
     function tick() {
-      const state = getRaffleState(raffle)
+      const state = getRaffleState(raffle, entrants)
 
       if (!isLive(state)) {
         clearInterval(interval.current)
@@ -233,12 +246,12 @@ function Raffle({ raffle: initialRaffle }: { raffle: RaffleWithPublicKeyAndEntra
     return () => {
       clearInterval(interval.current)
     }
-  }, [raffle.account.startTime, raffle.account.endTime, raffle.entrants])
+  }, [raffle.account.startTime, raffle.account.endTime, entrants])
 
   return (
     <Card>
       <Link to={`${raffle.publicKey.toBase58()}`}>
-        <Prize raffle={raffle} raffleState={raffleState} />
+        <Prize raffle={raffle} raffleState={raffleState} entrants={entrants} />
       </Link>
       <CardBody>
         <div className="flex flex-col gap-3">
@@ -259,20 +272,31 @@ function Raffle({ raffle: initialRaffle }: { raffle: RaffleWithPublicKeyAndEntra
           <div className="flex justify-between">
             <p>Tickets:</p>
             <p>
-              {raffle.entrants?.total.toString() || 0} /{" "}
-              {raffle.entrants?.max.toString() === "4294967295" ? "∞" : raffle.entrants?.max.toString() || 0}
+              {entrants?.total.toString() || 0} /{" "}
+              {entrants?.max.toString() === "4294967295" ? "∞" : entrants?.max.toString() || 0}
             </p>
           </div>
-          <div className="flex items-end justify-start h-full">
-            <div>
-              <p className="text-xs font-bold uppercase">Ends in</p>
-              {(raffle.entrants?.total || 0) < (raffle.entrants?.max || 0) ? (
-                <Countdown until={raffle.account.endTime.toNumber()} className="text-xl" compact />
-              ) : (
-                <p className="text-xl">ENDED</p>
-              )}
-            </div>
-          </div>
+          <>
+            {raffleState === RaffleState.notStarted ? (
+              <div className="flex items-end justify-start h-full">
+                <div>
+                  <p className="text-xs font-bold uppercase">Starts in</p>
+                  <Countdown until={raffle.account.startTime.toNumber()} className="text-xl" compact urgent={false} />
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-end justify-start h-full">
+                <div>
+                  <p className="text-xs font-bold uppercase">Ends in</p>
+                  {(entrants?.total || 0) < (entrants?.max || 0) ? (
+                    <Countdown until={raffle.account.endTime.toNumber()} className="text-xl" compact />
+                  ) : (
+                    <p className="text-xl">ENDED</p>
+                  )}
+                </div>
+              </div>
+            )}
+          </>
         </div>
       </CardBody>
       <CardFooter>

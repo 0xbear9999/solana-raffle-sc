@@ -1,7 +1,7 @@
 import * as anchor from "@coral-xyz/anchor"
 import { Button, Tab, Tabs } from "@nextui-org/react"
 import { LoaderFunction, MetaFunction, json } from "@vercel/remix"
-import { Link, Outlet, useLoaderData } from "@remix-run/react"
+import { Link, Outlet, useLoaderData, useLocation } from "@remix-run/react"
 import { useWallet } from "@solana/wallet-adapter-react"
 import { useRaffle } from "~/context/raffle"
 import { getRafflerFromSlug } from "~/helpers"
@@ -43,6 +43,7 @@ export const loader: LoaderFunction = async ({ params }) => {
 
 export default function Raffle() {
   const { theme } = useTheme()
+  const { pathname } = useLocation()
   const data = useLoaderData<typeof loader>()
   const raffleProgram = useRaffle()
   const raffler: RafflerWithPublicKey = {
@@ -64,7 +65,7 @@ export default function Raffle() {
           )}
         </Link>
 
-        {isAdmin && (
+        {isAdmin && !pathname.includes("/create") && (
           <Link to="create">
             <Button color="primary">Create new raffle</Button>
           </Link>

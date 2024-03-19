@@ -54,7 +54,7 @@ import base58 from "bs58"
 import { TokenSelector } from "~/components/TokenSelector"
 import { useWallet } from "@solana/wallet-adapter-react"
 import { ErrorMessage } from "~/components/ErrorMessage"
-import { displayErrorFromLog } from "~/helpers"
+import { displayErrorFromLog, packTx, sendAllTxsWithRetries } from "~/helpers"
 import axios from "axios"
 
 type TicketType = "nft" | "token" | "sol"
@@ -365,27 +365,15 @@ export default function Create() {
               programId: fromWeb3JsPublicKey(program.programId),
             })
           )
-          .add(setComputeUnitLimit(umi, { units: 500_000 }))
           .add({
             instruction: fromWeb3JsInstruction(instruction),
             signers: [umi.identity],
             bytesCreatedOnChain: 8 + 32 + 32 + 32 + (1 + 32) + (1 + 32 + 8) + 1 + (1 + 32) + 8 + 8 + 8 + 1 + 2 + 1 + 1,
           })
 
-        const built = await tx.buildWithLatestBlockhash(umi)
-
-        const fee = await getPriorityFeesForTx(base58.encode(umi.transactions.serialize(built)), feeLevel)
-
-        if (fee) {
-          tx = tx.prepend(setComputeUnitPrice(umi, { microLamports: fee }))
-        }
-
-        const conf = await tx.sendAndConfirm(umi, {
-          confirm: { commitment: "confirmed" },
-        })
-        if (conf.result.value.err) {
-          throw new Error(conf.result.value.err.toString())
-        }
+        const { chunks, txFee } = await packTx(umi, tx, feeLevel, 500_000)
+        const signed = await Promise.all(chunks.map((c) => c.buildAndSign(umi)))
+        return await sendAllTxsWithRetries(umi, program.provider.connection, signed, 1 + (txFee ? 1 : 0))
       })
 
       toast.promise(promise, {

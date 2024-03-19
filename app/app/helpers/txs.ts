@@ -11,15 +11,12 @@ import {
   findMasterEditionPda,
   findMetadataPda,
 } from "@metaplex-foundation/mpl-token-metadata"
-import { getPriorityFeesForTx } from "./helius"
-import { setComputeUnitLimit, setComputeUnitPrice } from "@metaplex-foundation/mpl-toolbox"
 import { DAS } from "helius-sdk"
 import { Raffle } from "~/types/raffle"
-import base58 from "bs58"
 import { PriorityFees } from "~/constants"
 import toast from "react-hot-toast"
 import { MPL_TOKEN_AUTH_RULES_PROGRAM_ID } from "@metaplex-foundation/mpl-token-auth-rules"
-import { displayErrorFromLog } from "."
+import { displayErrorFromLog, packTx, sendAllTxsWithRetries } from "."
 
 export async function buyTickets({
   umi,
@@ -152,33 +149,27 @@ export async function buyTickets({
         }
       }
 
-      let tx = transactionBuilder()
-        .add(setComputeUnitLimit(umi, { units: 500_000 }))
-        .add({
-          instruction: fromWeb3JsInstruction(instruction!),
-          bytesCreatedOnChain: 32,
-          signers: [umi.identity],
-        })
+      let tx = transactionBuilder().add({
+        instruction: fromWeb3JsInstruction(instruction!),
+        bytesCreatedOnChain: 32,
+        signers: [umi.identity],
+      })
 
-      const fee = await getPriorityFeesForTx(
-        base58.encode(umi.transactions.serialize(await tx.buildWithLatestBlockhash(umi))),
-        feeLevel
-      )
-
-      if (fee) {
-        tx = tx.prepend(setComputeUnitPrice(umi, { microLamports: fee }))
-      }
-
-      const res = await tx.sendAndConfirm(umi)
-      if (res.result.value.err) {
-        throw new Error("Error confirming transaction")
-      }
+      const { chunks, txFee } = await packTx(umi, tx, feeLevel, 500_000)
+      const signed = await Promise.all(chunks.map((c) => c.buildAndSign(umi)))
+      return await sendAllTxsWithRetries(umi, program.provider.connection, signed, 1 + (txFee ? 1 : 0))
     })
 
     toast.promise(promise, {
       loading: `Buying ${num} ticket${num === 1 ? "" : "s"}`,
       success: "Success",
-      error: (err) => displayErrorFromLog(err, "Error buying tickets"),
+      error: (err) =>
+        displayErrorFromLog(
+          err,
+          raffle.account.paymentType.token?.tokenMint.toBase58() === nativeMint
+            ? "SOL raffles can become congested, try again with elevated Priority fees"
+            : "Error buying tickets"
+        ),
     })
 
     await promise

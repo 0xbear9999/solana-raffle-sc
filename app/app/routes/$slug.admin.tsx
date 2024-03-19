@@ -16,7 +16,7 @@ import { useRaffle } from "~/context/raffle"
 import { useStake } from "~/context/stake"
 import { useTheme } from "~/context/theme"
 import { useUmi } from "~/context/umi"
-import { displayErrorFromLog, uploadFiles } from "~/helpers"
+import { displayErrorFromLog, packTx, sendAllTxsWithRetries, uploadFiles } from "~/helpers"
 import { getPriorityFeesForTx } from "~/helpers/helius"
 import { findProgramConfigPda, findProgramDataAddress } from "~/helpers/pdas"
 import { RafflerWithPublicKey, Staker } from "~/types/types"
@@ -148,18 +148,9 @@ function RafflerAdminForm({ raffler }: { raffler: RafflerWithPublicKey }) {
           signers: [umi.identity],
         })
 
-        const built = await tx.buildWithLatestBlockhash(umi)
-
-        const fee = await getPriorityFeesForTx(base58.encode(umi.transactions.serialize(built)), feeLevel)
-
-        if (fee) {
-          tx = tx.prepend(setComputeUnitPrice(umi, { microLamports: fee }))
-        }
-
-        const conf = await tx.sendAndConfirm(umi)
-        if (conf.result.value.err) {
-          throw new Error(conf.result.value.err.toString())
-        }
+        const { chunks, txFee } = await packTx(umi, tx, feeLevel)
+        const signed = await Promise.all(chunks.map((c) => c.buildAndSign(umi)))
+        return await sendAllTxsWithRetries(umi, raffleProgram.provider.connection, signed, 1 + (txFee ? 1 : 0))
       })
 
       toast.promise(promise, {
@@ -195,18 +186,9 @@ function RafflerAdminForm({ raffler }: { raffler: RafflerWithPublicKey }) {
           signers: [umi.identity],
         })
 
-        const built = await tx.buildWithLatestBlockhash(umi)
-
-        const fee = await getPriorityFeesForTx(base58.encode(umi.transactions.serialize(built)), feeLevel)
-
-        if (fee) {
-          tx = tx.prepend(setComputeUnitPrice(umi, { microLamports: fee }))
-        }
-
-        const conf = await tx.sendAndConfirm(umi)
-        if (conf.result.value.err) {
-          throw new Error(conf.result.value.err.toString())
-        }
+        const { chunks, txFee } = await packTx(umi, tx, feeLevel)
+        const signed = await Promise.all(chunks.map((c) => c.buildAndSign(umi)))
+        return await sendAllTxsWithRetries(umi, raffleProgram.provider.connection, signed, 1 + (txFee ? 1 : 0))
       })
 
       toast.promise(promise, {

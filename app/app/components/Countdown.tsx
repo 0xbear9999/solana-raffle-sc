@@ -24,12 +24,14 @@ export function Countdown({
   compact,
   threshold = 60 * 60,
   thresholdClassName = "text-danger font-bold text-xl",
+  urgent = true,
 }: {
   until: number
   className?: string
   compact?: boolean
   threshold?: number
   thresholdClassName?: string
+  urgent?: boolean
 }) {
   const [timeLeft, setTimeLeft] = useState<Record<string, number>>(calculateTimeLeft(until))
 
@@ -52,16 +54,16 @@ export function Countdown({
         }
 
         if (interval === "hours") {
-          return timeLeft.days
+          return !!timeLeft.days
         }
 
         if (interval === "minutes") {
-          return timeLeft.hours || timeLeft.days
+          return !!(timeLeft.hours || timeLeft.days)
         }
       }
 
       return (
-        <span key={index} className={cn({ [thresholdClassName]: timeLeft.difference <= threshold })}>
+        <span key={index} className={cn({ [thresholdClassName]: urgent && timeLeft.difference <= threshold })}>
           {timeLeft[interval as keyof object]}
           {compact ? "" : " "}
           {compact

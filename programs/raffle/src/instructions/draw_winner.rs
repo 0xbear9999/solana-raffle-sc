@@ -111,7 +111,7 @@ pub fn draw_winner_handler(
                 AccountMeta::new_readonly(ctx.accounts.randomness_request.key(), false).into(),
                 AccountMeta::new(ctx.accounts.raffle.key(), false).into(),
             ],
-            ix_data: get_ixn_discriminator("consume_randomness").to_vec(), // TODO: hardcode this discriminator [190,217,49,162,99,26,73,234]
+            ix_data: get_ixn_discriminator("consume_randomness").to_vec(),
         },
         Some(TransactionOptions {
             compute_units: Some(1_000_000),

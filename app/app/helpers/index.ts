@@ -5,11 +5,23 @@ import { raffleProgram } from "./raffle.server"
 import bs58 from "bs58"
 import { stakeProgram } from "./stake.server"
 import { Stake } from "~/types/stake"
-import { PublicKey, Umi, createGenericFileFromBrowserFile, publicKey } from "@metaplex-foundation/umi"
+import {
+  PublicKey,
+  Transaction,
+  TransactionBuilder,
+  Umi,
+  createGenericFileFromBrowserFile,
+  publicKey,
+} from "@metaplex-foundation/umi"
 import _, { compact, mapValues } from "lodash"
 import { Assets, RaffleState } from "~/types/types"
 import axios from "axios"
 import { getProgramAccounts } from "./index.server"
+import { Connection } from "@solana/web3.js"
+import { MAX_TX_SIZE, PRIORITY_AND_COMPUTE_IXS_SIZE, PRIORITY_FEE_IX_SIZE, PriorityFees } from "~/constants"
+import { base58 } from "@metaplex-foundation/umi/serializers"
+import { getPriorityFeesForTx } from "./helius"
+import { setComputeUnitLimit, setComputeUnitPrice } from "@metaplex-foundation/mpl-toolbox"
 
 export async function getRafflerFromSlug(slug: string) {
   const rafflers = await getProgramAccounts(
@@ -122,12 +134,16 @@ export async function uploadFiles(umi: Umi, logoFile: File | null, bgFile: File 
   )
 
   const result = await new Promise<string[]>(async (resolve, reject) => {
-    const promise = umi.uploader.upload(files)
-    const result = await Promise.race([promise, sleep(30_000)])
-    if (result) {
-      resolve(mapValues(result, (item: string) => item.replace(arweave, "")) as [])
-    } else {
-      throw new Error("Timed out waiting for upload")
+    try {
+      const promise = umi.uploader.upload(files)
+      const result = await Promise.race([promise, sleep(30_000)])
+      if (result) {
+        resolve(mapValues(result, (item: string) => item.replace(arweave, "")) as [])
+      } else {
+        reject("Timed out waiting for upload")
+      }
+    } catch (err) {
+      reject(err)
     }
   })
 
@@ -146,5 +162,102 @@ export async function uploadFiles(umi: Umi, logoFile: File | null, bgFile: File 
       bg: `${result[0]}?ext=${bgFile?.name.split(".")[1]}`,
       logo: `${result[1]}?ext=${logoFile?.name.split(".")[1]}`,
     }
+  }
+}
+
+export function unsafeSplitByTransactionSizeWithPriorityFees(
+  umi: Umi,
+  tx: TransactionBuilder,
+  computeUnits: boolean
+): TransactionBuilder[] {
+  return tx.items.reduce(
+    (builders, item) => {
+      const lastBuilder = builders.pop() as TransactionBuilder
+      const lastBuilderWithItem = lastBuilder.add(item)
+      if (
+        lastBuilderWithItem.getTransactionSize(umi) <=
+        MAX_TX_SIZE - (computeUnits ? PRIORITY_AND_COMPUTE_IXS_SIZE : PRIORITY_FEE_IX_SIZE)
+      ) {
+        builders.push(lastBuilderWithItem)
+      } else {
+        builders.push(lastBuilder)
+        builders.push(lastBuilder.empty().add(item))
+      }
+      return builders
+    },
+    [tx.empty()]
+  )
+}
+
+export async function packTx(umi: Umi, tx: TransactionBuilder, feeLevel: PriorityFees, computeUnits?: number) {
+  let chunks = unsafeSplitByTransactionSizeWithPriorityFees(umi, tx, !!computeUnits)
+
+  const [encoded] = base58.deserialize(umi.transactions.serialize(await chunks[0].buildWithLatestBlockhash(umi)))
+  const txFee = feeLevel && (await getPriorityFeesForTx(encoded, feeLevel))
+
+  if (computeUnits) {
+    chunks = chunks.map((ch) => ch.prepend(setComputeUnitLimit(umi, { units: computeUnits })))
+  }
+
+  if (txFee) {
+    chunks = chunks.map((ch) => ch.prepend(setComputeUnitPrice(umi, { microLamports: txFee })))
+  }
+  return { chunks, txFee }
+}
+
+export async function sendAllTxsWithRetries(
+  umi: Umi,
+  connection: Connection,
+  signed: Transaction[],
+  preIxs = 0,
+  delay = 500
+) {
+  let successes = 0
+  let errors = 0
+
+  const lastValidBlockHeight = (await umi.rpc.getLatestBlockhash()).lastValidBlockHeight
+  let blockheight = await connection.getBlockHeight("confirmed")
+  let blockhash = await umi.rpc.getLatestBlockhash()
+
+  await Promise.all(
+    signed.map(async (tx) => {
+      const sig = await umi.rpc.sendTransaction(tx)
+      let resolved = false
+      const confPromise = umi.rpc.confirmTransaction(sig, {
+        strategy: {
+          type: "blockhash",
+          ...blockhash,
+        },
+        commitment: "confirmed",
+      })
+
+      while (blockheight < lastValidBlockHeight && !resolved) {
+        try {
+          console.log("Sending tx")
+          await umi.rpc.sendTransaction(tx)
+          await sleep(delay)
+        } catch (err: any) {
+          if (err.message.includes("This transaction has already been processed")) {
+            resolved = true
+          } else {
+            console.error(displayErrorFromLog(err, err.message || "Error sending tx"))
+          }
+        }
+        blockheight = await connection.getBlockHeight()
+      }
+
+      const conf = await confPromise
+
+      if (conf.value.err) {
+        errors += tx.message.instructions.length - preIxs
+      } else {
+        successes += tx.message.instructions.length - preIxs
+      }
+    })
+  )
+
+  return {
+    successes,
+    errors,
   }
 }

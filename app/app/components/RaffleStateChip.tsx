@@ -1,12 +1,14 @@
 import { Chip } from "@nextui-org/react"
-import { RaffleState, RaffleWithPublicKeyAndEntrants } from "~/types/types"
+import { Entrants, RaffleState, RaffleWithPublicKey, RaffleWithPublicKeyAndEntrants } from "~/types/types"
 
 export function RaffleStateChip({
   raffleState,
   raffle,
+  entrants,
 }: {
   raffleState: RaffleState
-  raffle: RaffleWithPublicKeyAndEntrants
+  raffle: RaffleWithPublicKey
+  entrants: Entrants
 }) {
   return (
     <Chip
@@ -17,12 +19,13 @@ export function RaffleStateChip({
           [RaffleState.ended]: "warning",
           [RaffleState.inProgress]: "success",
           [RaffleState.cancelled]: "danger",
+          [RaffleState.awaitingRandomness]: "warning",
           [RaffleState.claimed]: "success",
           [RaffleState.drawn]: "danger",
         }[raffleState] as any
       }
     >
-      {raffleState === RaffleState.ended && !raffle.entrants.total ? RaffleState.claimed : raffleState}
+      {raffleState === RaffleState.ended && !entrants.total ? RaffleState.claimed : raffleState}
     </Chip>
   )
 }

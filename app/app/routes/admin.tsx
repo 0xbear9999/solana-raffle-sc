@@ -33,6 +33,7 @@ import { raffleProgram } from "~/helpers/raffle.server"
 import { umi } from "~/helpers/umi"
 import { getAccount } from "~/helpers/index.server"
 import { ProgramConfig } from "~/types/types"
+import { packTx, sendAllTxsWithRetries } from "~/helpers"
 
 export const loader: LoaderFunction = async () => {
   const programConfig = await getAccount(toWeb3JsPublicKey(findProgramConfigPda(umi)), "programConfig", raffleProgram)
@@ -43,6 +44,7 @@ export const loader: LoaderFunction = async () => {
 }
 
 export default function Admin() {
+  const { feeLevel } = usePriorityFees()
   const [loading, setLoading] = useState(false)
   const raffleProgram = useRaffle()
   const wallet = useWallet()
@@ -79,14 +81,26 @@ export default function Admin() {
     try {
       setLoading(true)
       const slugs = (await raffleProgram.account.raffler.all()).map((r) => r.account.slug)
-      const promise = raffleProgram.methods
-        .setSlugs(slugs)
-        .accounts({
-          programConfig: findProgramConfigPda(),
-          programData: findProgramDataAddress(),
-          program: raffleProgram.programId,
+      const promise = Promise.resolve().then(async () => {
+        const tx = transactionBuilder().add({
+          instruction: fromWeb3JsInstruction(
+            await raffleProgram.methods
+              .setSlugs(slugs)
+              .accounts({
+                programConfig: findProgramConfigPda(),
+                programData: findProgramDataAddress(),
+                program: raffleProgram.programId,
+              })
+              .instruction()
+          ),
+          bytesCreatedOnChain: 0,
+          signers: [umi.identity],
         })
-        .rpc()
+
+        const { chunks, txFee } = await packTx(umi, tx, feeLevel)
+        const signed = await Promise.all(chunks.map((c) => c.buildAndSign(umi)))
+        return await sendAllTxsWithRetries(umi, raffleProgram.provider.connection, signed, 1 + (txFee ? 1 : 0))
+      })
 
       toast.promise(promise, {
         loading: "Setting slugs",
@@ -152,18 +166,10 @@ function UpdateProgramConfig({ programConfig }: { programConfig: ProgramConfig }
           bytesCreatedOnChain: 0,
           signers: [umi.identity],
         })
-        const built = await tx.buildWithLatestBlockhash(umi)
 
-        const fee = await getPriorityFeesForTx(base58.encode(umi.transactions.serialize(built)), feeLevel)
-
-        if (fee) {
-          tx = tx.prepend(setComputeUnitPrice(umi, { microLamports: fee }))
-        }
-
-        const conf = await tx.sendAndConfirm(umi)
-        if (conf.result.value.err) {
-          throw new Error("Error confirming")
-        }
+        const { chunks, txFee } = await packTx(umi, tx, feeLevel)
+        const signed = await Promise.all(chunks.map((c) => c.buildAndSign(umi)))
+        return await sendAllTxsWithRetries(umi, program.provider.connection, signed, 1 + (txFee ? 1 : 0))
       })
 
       toast.promise(promise, {
@@ -207,45 +213,37 @@ function Recover() {
         const isPnft = unwrapOptionRecursively(nft.metadata.tokenStandard) === TokenStandard.ProgrammableNonFungible
         const destinationPk = destination ? publicKey(destination) : umi.identity.publicKey
 
-        let tx = transactionBuilder()
-          .add(setComputeUnitLimit(umi, { units: 1_000_000 }))
-          .add({
-            instruction: fromWeb3JsInstruction(
-              await raffleProgram.methods
-                .recoverNft()
-                .accounts({
-                  nftMint: nft.publicKey,
-                  destination: destinationPk,
-                  nftDestination: getTokenAccount(umi, nft.publicKey, destinationPk),
-                  nftMetadata: nft.metadata.publicKey,
-                  nftEdition: nft.edition?.publicKey,
-                  nftSource: nft.token.publicKey,
-                  raffle: nft.token.owner,
-                  sourceTokenRecord: isPnft ? getTokenRecordPda(umi, nft.publicKey, nft.token.owner) : null,
-                  destinationTokenRecord: isPnft ? getTokenRecordPda(umi, nft.publicKey, destinationPk) : null,
-                  entrants,
-                  programData: findProgramDataAddress(),
-                  program: raffleProgram.programId,
-                  authRules: isPnft ? unwrapOptionRecursively(nft.metadata.programmableConfig)?.ruleSet : null,
-                  authRulesProgram: MPL_TOKEN_AUTH_RULES_PROGRAM_ID,
-                  metadataProgram: MPL_TOKEN_METADATA_PROGRAM_ID,
-                  sysvarInstructions: getSysvar("instructions"),
-                })
-                .instruction()
-            ),
-            bytesCreatedOnChain: 0,
-            signers: [umi.identity],
-          })
+        let tx = transactionBuilder().add({
+          instruction: fromWeb3JsInstruction(
+            await raffleProgram.methods
+              .recoverNft()
+              .accounts({
+                nftMint: nft.publicKey,
+                destination: destinationPk,
+                nftDestination: getTokenAccount(umi, nft.publicKey, destinationPk),
+                nftMetadata: nft.metadata.publicKey,
+                nftEdition: nft.edition?.publicKey,
+                nftSource: nft.token.publicKey,
+                raffle: nft.token.owner,
+                sourceTokenRecord: isPnft ? getTokenRecordPda(umi, nft.publicKey, nft.token.owner) : null,
+                destinationTokenRecord: isPnft ? getTokenRecordPda(umi, nft.publicKey, destinationPk) : null,
+                entrants,
+                programData: findProgramDataAddress(),
+                program: raffleProgram.programId,
+                authRules: isPnft ? unwrapOptionRecursively(nft.metadata.programmableConfig)?.ruleSet : null,
+                authRulesProgram: MPL_TOKEN_AUTH_RULES_PROGRAM_ID,
+                metadataProgram: MPL_TOKEN_METADATA_PROGRAM_ID,
+                sysvarInstructions: getSysvar("instructions"),
+              })
+              .instruction()
+          ),
+          bytesCreatedOnChain: 0,
+          signers: [umi.identity],
+        })
 
-        const built = await tx.buildWithLatestBlockhash(umi)
-
-        const fee = await getPriorityFeesForTx(base58.encode(umi.transactions.serialize(built)), feeLevel)
-
-        if (fee) {
-          tx = tx.prepend(setComputeUnitPrice(umi, { microLamports: fee }))
-        }
-
-        const conf = await tx.sendAndConfirm(umi)
+        const { chunks, txFee } = await packTx(umi, tx, feeLevel, 500_000)
+        const signed = await Promise.all(chunks.map((c) => c.buildAndSign(umi)))
+        return await sendAllTxsWithRetries(umi, raffleProgram.provider.connection, signed, 1 + (txFee ? 1 : 0))
       })
 
       toast.promise(promise, {

@@ -39,6 +39,7 @@ export enum RaffleState {
   notStarted = "Not started",
   inProgress = "In progress",
   ended = "Awaiting draw",
+  awaitingRandomness = "Awaiting result",
   claimed = "Ended",
   cancelled = "Cancelled",
   drawn = "Drawn",

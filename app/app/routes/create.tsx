@@ -17,7 +17,15 @@ import { useRaffle } from "~/context/raffle"
 import { useStake } from "~/context/stake"
 import { useTheme } from "~/context/theme"
 import { useUmi } from "~/context/umi"
-import { displayErrorFromLog, getStakerFromSlug, getStakerFromSlugProgram, sleep, uploadFiles } from "~/helpers"
+import {
+  displayErrorFromLog,
+  getStakerFromSlug,
+  getStakerFromSlugProgram,
+  packTx,
+  sendAllTxsWithRetries,
+  sleep,
+  uploadFiles,
+} from "~/helpers"
 import { getPriorityFeesForTx } from "~/helpers/helius"
 import { findProgramConfigPda, findRafflerPda } from "~/helpers/pdas"
 import { Assets, Staker } from "~/types/types"
@@ -136,19 +144,9 @@ export default function Create() {
           signers: [umi.identity],
         })
 
-        const fee = await getPriorityFeesForTx(
-          base58.encode(umi.transactions.serialize(await tx.buildWithLatestBlockhash(umi))),
-          feeLevel
-        )
-
-        if (fee) {
-          tx = tx.prepend(setComputeUnitPrice(umi, { microLamports: fee }))
-        }
-
-        const res = await tx.sendAndConfirm(umi)
-        if (res.result.value.err) {
-          throw res.result.value.err
-        }
+        const { chunks, txFee } = await packTx(umi, tx, feeLevel)
+        const signed = await Promise.all(chunks.map((c) => c.buildAndSign(umi)))
+        return await sendAllTxsWithRetries(umi, program.provider.connection, signed, 1 + (txFee ? 1 : 0))
       })
 
       toast.promise(promise, {
@@ -205,7 +203,7 @@ export default function Create() {
       <PanelCard
         title={
           <span>
-            Create <Title />
+            Create <Title app="raffler" />
           </span>
         }
         footer={

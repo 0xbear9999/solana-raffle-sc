@@ -13,10 +13,24 @@ import { useEffect, useState } from "react"
 import { useUmi } from "~/context/umi"
 import { imageCdn } from "~/helpers"
 import { getTokenAccount } from "~/helpers/pdas"
-import { RaffleState, RaffleWithPublicKeyAndEntrants, TokenWithTokenInfo } from "~/types/types"
+import {
+  Entrants,
+  RaffleState,
+  RaffleWithPublicKey,
+  RaffleWithPublicKeyAndEntrants,
+  TokenWithTokenInfo,
+} from "~/types/types"
 import { RaffleStateChip } from "./RaffleStateChip"
 
-export function Prize({ raffle, raffleState }: { raffle: RaffleWithPublicKeyAndEntrants; raffleState: RaffleState }) {
+export function Prize({
+  raffle,
+  raffleState,
+  entrants,
+}: {
+  raffle: RaffleWithPublicKey
+  raffleState: RaffleState
+  entrants: Entrants
+}) {
   const wallet = useWallet()
   const umi = useUmi()
   const [digitalAsset, setDigitalAsset] = useState<DAS.GetAssetResponse | null>(null)
@@ -92,7 +106,7 @@ export function Prize({ raffle, raffleState }: { raffle: RaffleWithPublicKeyAndE
         </Card>
       )}
 
-      <RaffleStateChip raffleState={raffleState} raffle={raffle} />
+      <RaffleStateChip raffleState={raffleState} raffle={raffle} entrants={entrants} />
     </div>
   )
 }

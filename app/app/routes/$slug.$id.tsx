@@ -62,6 +62,7 @@ import {
   Entrants,
   Raffle,
   RaffleState,
+  RaffleWithPublicKey,
   RaffleWithPublicKeyAndEntrants,
   RafflerWithPublicKey,
   TokenWithTokenInfo,
@@ -80,6 +81,8 @@ import {
   getEntrantsArray,
   imageCdn,
   isLive,
+  packTx,
+  sendAllTxsWithRetries,
   shorten,
   sleep,
 } from "~/helpers"
@@ -108,8 +111,8 @@ export const loader: LoaderFunction = async ({ params }) => {
     entrantsArray = dataToPks(new Uint8Array((Object.values(data) as any).slice(8 + 4 + 4)))
   } else {
     entrants = await getAccount(raffle.entrants, "entrants", raffleProgram)
-    const encoded = await getAccount(raffle.entrants, "entrants", raffleProgram, false)
-    entrantsArray = dataToPks(new Uint8Array((encoded as any).slice(8 + 4 + 4)))
+    const encoded = entrants && (await getAccount(raffle.entrants, "entrants", raffleProgram, false))
+    entrantsArray = encoded && dataToPks(new Uint8Array((encoded as any).slice(8 + 4 + 4)))
   }
 
   return json({
@@ -138,11 +141,11 @@ export default function SingleRaffle() {
   const [digitalAsset, setDigitalAsset] = useState<DAS.GetAssetResponse | null>(null)
   const data = useLoaderData<typeof loader>()
   const raffleProgram = useRaffle()
-  const [raffle, setRaffle] = useState<RaffleWithPublicKeyAndEntrants>({
+  const [raffle, setRaffle] = useState<RaffleWithPublicKey>({
     publicKey: new anchor.web3.PublicKey(data.publicKey),
     account: raffleProgram.coder.accounts.decode("raffle", Buffer.from(data.raffle)),
-    entrants: data.entrants,
   })
+  const [entrants, setEntrants] = useState(data.entrants)
   const [raffleState, setRaffleState] = useState<RaffleState>(RaffleState.notStarted)
   const { feeLevel } = usePriorityFees()
   const raffler = useOutletContext<RafflerWithPublicKey>()
@@ -167,21 +170,17 @@ export default function SingleRaffle() {
 
     async function fetchAcc() {
       const acc = await program.account.raffle.fetch(raffle.publicKey)
-      const entrants = await program.account.entrants.fetch(acc.entrants)
       setRaffle((prevState) => {
         return {
           ...prevState,
           account: acc,
-          entrants,
         }
       })
     }
 
     const id = program.provider.connection.onAccountChange(raffle.publicKey, fetchAcc)
-    const id2 = program.provider.connection.onAccountChange(raffle.account.entrants, fetchAcc)
     return () => {
       program.provider.connection.removeAccountChangeListener(id)
-      program.provider.connection.removeAccountChangeListener(id2)
     }
   }, [raffle.publicKey])
 
@@ -193,25 +192,23 @@ export default function SingleRaffle() {
 
   useEffect(() => {
     async function getEntrants() {
-      let entrantsArray: PublicKey[]
-      if (raffle.account.uri) {
+      const entrants = await program.account.entrants.fetchNullable(raffle.account.entrants)
+      let entrantsArray: PublicKey[] = []
+      if (entrants) {
+        setEntrants(entrants)
+        entrantsArray = await getEntrantsArray(umi, fromWeb3JsPublicKey(raffle.account.entrants))
+      } else if (raffle.account.uri) {
         entrantsArray = data.entrantsArray
       } else if (raffle.account.uri) {
         const { data } = await axios.get(raffle.account.uri)
         const entrants = await raffleProgram.coder.accounts.decode("entrants", Buffer.from(Object.values(data) as any))
-        setRaffle((prevState) => {
-          return {
-            ...prevState,
-            entrants,
-          }
-        })
+        setEntrants(entrants)
         entrantsArray = dataToPks(new Uint8Array((Object.values(data) as any).slice(8 + 4 + 4)))
-      } else {
-        entrantsArray = await getEntrantsArray(umi, fromWeb3JsPublicKey(raffle.account.entrants))
       }
+
       const grouped = _.groupBy(entrantsArray, (item) => item)
       const mapped = _.map(grouped, (tickets, key) => {
-        const chance = (tickets.length / (raffle.entrants.total || 0)) * 100
+        const chance = (tickets.length / (entrants?.total || 0)) * 100
         return {
           key,
           wallet: shorten(key) || "",
@@ -237,7 +234,7 @@ export default function SingleRaffle() {
 
   useEffect(() => {
     function tick() {
-      const state = getRaffleState(raffle)
+      const state = getRaffleState(raffle, entrants)
       if (!isLive(state)) {
         clearInterval(interval.current)
       }
@@ -249,7 +246,7 @@ export default function SingleRaffle() {
     return () => {
       interval.current && clearInterval(interval.current)
     }
-  }, [raffle.account.startTime, raffle.account.endTime, raffle.entrants?.total, raffle.entrants?.max])
+  }, [raffle.account.startTime, raffle.account.endTime, entrants?.total, entrants?.max])
 
   async function cancelRaffle() {
     try {
@@ -315,53 +312,41 @@ export default function SingleRaffle() {
           )
         }
         const prizePk = fromWeb3JsPublicKey(raffle.account.prize)
-        let tx = transactionBuilder()
-          .add(setComputeUnitLimit(umi, { units: 500_000 }))
-          .add({
-            instruction: fromWeb3JsInstruction(
-              await program.methods
-                .claimPrize(winnerIndex)
-                .accounts({
-                  programConfig: findProgramConfigPda(umi),
-                  raffle: data.publicKey,
-                  raffler: raffle.account.raffler,
-                  proceedsMint,
-                  feesWallet: FEES_WALLET,
-                  feesWalletToken: proceedsMint ? getTokenAccount(umi, proceedsMint, FEES_WALLET) : null,
-                  proceedsSource: proceedsMint ? getTokenAccount(umi, proceedsMint, data.publicKey) : null,
-                  proceedsDestination: proceedsMint ? getTokenAccount(umi, proceedsMint, treasury) : null,
-                  entrants: raffle.account.entrants,
-                  prize: prizePk,
-                  treasury,
-                  prizeCustody: getTokenAccount(umi, prizePk, data.publicKey),
-                  prizeDestination: getTokenAccount(umi, prizePk, winner),
-                  metadataProgram: MPL_TOKEN_METADATA_PROGRAM_ID,
-                  sysvarInstructions: anchor.web3.SYSVAR_INSTRUCTIONS_PUBKEY,
-                  authority: raffler.account.authority,
-                  winner,
-                  authRules: prizeDa ? unwrapOptionRecursively(prizeDa.metadata.programmableConfig)?.ruleSet : null,
-                  authRulesProgram: isPnft ? MPL_TOKEN_AUTH_RULES_PROGRAM_ID : null,
-                })
-                .remainingAccounts(remainingAccounts)
-                .instruction()
-            ),
-            bytesCreatedOnChain: 0,
-            signers: [umi.identity],
-          })
+        let tx = transactionBuilder().add({
+          instruction: fromWeb3JsInstruction(
+            await program.methods
+              .claimPrize(winnerIndex)
+              .accounts({
+                programConfig: findProgramConfigPda(umi),
+                raffle: data.publicKey,
+                raffler: raffle.account.raffler,
+                proceedsMint,
+                feesWallet: FEES_WALLET,
+                feesWalletToken: proceedsMint ? getTokenAccount(umi, proceedsMint, FEES_WALLET) : null,
+                proceedsSource: proceedsMint ? getTokenAccount(umi, proceedsMint, data.publicKey) : null,
+                proceedsDestination: proceedsMint ? getTokenAccount(umi, proceedsMint, treasury) : null,
+                entrants: raffle.account.entrants,
+                prize: prizePk,
+                treasury,
+                prizeCustody: getTokenAccount(umi, prizePk, data.publicKey),
+                prizeDestination: getTokenAccount(umi, prizePk, winner),
+                metadataProgram: MPL_TOKEN_METADATA_PROGRAM_ID,
+                sysvarInstructions: anchor.web3.SYSVAR_INSTRUCTIONS_PUBKEY,
+                authority: raffler.account.authority,
+                winner,
+                authRules: prizeDa ? unwrapOptionRecursively(prizeDa.metadata.programmableConfig)?.ruleSet : null,
+                authRulesProgram: isPnft ? MPL_TOKEN_AUTH_RULES_PROGRAM_ID : null,
+              })
+              .remainingAccounts(remainingAccounts)
+              .instruction()
+          ),
+          bytesCreatedOnChain: 0,
+          signers: [umi.identity],
+        })
 
-        const fee = await getPriorityFeesForTx(
-          base58.encode(umi.transactions.serialize(await tx.buildWithLatestBlockhash(umi))),
-          feeLevel
-        )
-
-        if (fee) {
-          tx = tx.prepend(setComputeUnitPrice(umi, { microLamports: fee }))
-        }
-
-        const res = await tx.sendAndConfirm(umi)
-        if (res.result.value.err) {
-          throw new Error("Unable to confirm transaction")
-        }
+        const { chunks, txFee } = await packTx(umi, tx, feeLevel, 500_000)
+        const signed = await Promise.all(chunks.map((c) => c.buildAndSign(umi)))
+        return await sendAllTxsWithRetries(umi, program.provider.connection, signed, 1 + (txFee ? 1 : 0))
       })
 
       toast.promise(promise, {
@@ -398,16 +383,9 @@ export default function SingleRaffle() {
           signers: [umi.identity],
         })
 
-        const fee = await getPriorityFeesForTx(
-          base58.encode(umi.transactions.serialize(await tx.buildWithLatestBlockhash(umi))),
-          feeLevel
-        )
-
-        if (fee) {
-          tx.prepend(setComputeUnitPrice(umi, { microLamports: fee }))
-        }
-
-        await tx.sendAndConfirm(umi)
+        const { chunks, txFee } = await packTx(umi, tx, feeLevel)
+        const signed = await Promise.all(chunks.map((c) => c.buildAndSign(umi)))
+        return await sendAllTxsWithRetries(umi, program.provider.connection, signed, 1 + (txFee ? 1 : 0))
       })
 
       toast.promise(promise, {
@@ -465,12 +443,16 @@ export default function SingleRaffle() {
         }
 
         const uploadPromise = new Promise(async (resolve, reject) => {
-          const promise = umi.uploader.uploadJson(entrantsAcc.data)
-          const url = await Promise.race([promise, sleep(30_000)])
-          if (url) {
-            resolve(url)
-          } else {
-            reject(new Error("Timed out waiting for upload service"))
+          try {
+            const promise = umi.uploader.uploadJson(entrantsAcc.data)
+            const url = await Promise.race([promise, sleep(60_000)])
+            if (url) {
+              resolve(url)
+            } else {
+              reject(new Error("Timed out waiting for upload service"))
+            }
+          } catch (err) {
+            reject(err)
           }
         })
 
@@ -497,55 +479,51 @@ export default function SingleRaffle() {
           [PriorityFees.VERYHIGH]: new BN(500_000),
         }[feeLevel]
 
-        let tx = transactionBuilder().add({
-          instruction: fromWeb3JsInstruction(
-            await program.methods
-              .drawWinner(url as string, callbackFee)
-              .accounts({
-                raffle: data.publicKey,
-                entrants: raffle.account.entrants,
-                randomnessService: randomnessService.programId,
-                randomnessRequest: requestKeypair.publicKey,
-                randomnessEscrow: getTokenAccount(
-                  umi,
-                  fromWeb3JsPublicKey(randomnessService.accounts.mint),
-                  requestKeypair.publicKey
-                ),
-                randomnessState: randomnessService.accounts.state,
-                randomnessMint: randomnessService.accounts.mint,
-              })
-              .instruction()
-          ),
-          bytesCreatedOnChain: 0,
-          signers: [umi.identity, requestKeypair],
+        const sendPromise = Promise.resolve().then(async () => {
+          let tx = transactionBuilder().add({
+            instruction: fromWeb3JsInstruction(
+              await program.methods
+                .drawWinner(url as string, callbackFee)
+                .accounts({
+                  raffle: data.publicKey,
+                  entrants: raffle.account.entrants,
+                  randomnessService: randomnessService.programId,
+                  randomnessRequest: requestKeypair.publicKey,
+                  randomnessEscrow: getTokenAccount(
+                    umi,
+                    fromWeb3JsPublicKey(randomnessService.accounts.mint),
+                    requestKeypair.publicKey
+                  ),
+                  randomnessState: randomnessService.accounts.state,
+                  randomnessMint: randomnessService.accounts.mint,
+                })
+                .instruction()
+            ),
+            bytesCreatedOnChain: 0,
+            signers: [umi.identity, requestKeypair],
+          })
+
+          const { chunks, txFee } = await packTx(umi, tx, feeLevel)
+          const signed = await Promise.all(chunks.map((c) => c.buildAndSign(umi)))
+          return await sendAllTxsWithRetries(umi, program.provider.connection, signed, 1 + (txFee ? 1 : 0))
         })
-
-        const fee = await getPriorityFeesForTx(
-          base58.encode(umi.transactions.serialize(await tx.buildWithLatestBlockhash(umi))),
-          feeLevel
-        )
-
-        if (fee) {
-          tx = tx.prepend(setComputeUnitPrice(umi, { microLamports: fee }))
-        }
-
-        const sendPromise = tx.sendAndConfirm(umi)
 
         toast.promise(sendPromise, {
           loading: "Sending request to randomness service",
           success: "Randomness requested",
-          error: "Error requesting randomness",
+          error: (err) => displayErrorFromLog("err", "Error requesting randomness"),
         })
 
-        const res = await sendPromise
-        if (res.result.value.err) {
+        const { errors } = await sendPromise
+        if (errors) {
           throw new Error("Error drawing")
         }
 
         toast.promise(settledRandomnessEventPromise, {
           loading: "Awaiting randomness callback from oracle",
           success: "Randomness received",
-          error: "Error receiving randomness, please check back soon",
+          error:
+            "Didn't receiving randomness within 60s. this can often happen in times of network congestion - please check back soon",
         })
 
         await settledRandomnessEventPromise
@@ -590,7 +568,7 @@ export default function SingleRaffle() {
         let winnerIndex = 0
         if (raffle.account.randomness) {
           const winnerRand = expandRandomness(raffle.account.randomness)
-          winnerIndex = winnerRand % raffle.entrants.total
+          winnerIndex = winnerRand % entrants.total
 
           const entrantsArray = await getEntrantsArray(umi, fromWeb3JsPublicKey(raffle.account.entrants))
           winner = entrantsArray[winnerIndex]
@@ -634,55 +612,41 @@ export default function SingleRaffle() {
 
         const prizePk = fromWeb3JsPublicKey(raffle.account.prize)
 
-        let tx = transactionBuilder()
-          .add(setComputeUnitLimit(umi, { units: 500_000 }))
-          .add({
-            instruction: fromWeb3JsInstruction(
-              await program.methods
-                .claimPrize(winnerIndex)
-                .accounts({
-                  programConfig: findProgramConfigPda(),
-                  raffle: rafflePk,
-                  raffler: raffle.account.raffler,
-                  proceedsMint,
-                  feesWallet: FEES_WALLET,
-                  feesWalletToken: proceedsMint ? getTokenAccount(umi, proceedsMint, FEES_WALLET) : null,
-                  proceedsSource: proceedsMint ? getTokenAccount(umi, proceedsMint, rafflePk) : null,
-                  proceedsDestination: proceedsMint ? getTokenAccount(umi, proceedsMint, treasury) : null,
-                  entrants: raffle.account.entrants,
-                  prize: prizePk,
-                  treasury,
-                  prizeCustody: getTokenAccount(umi, prizePk, rafflePk),
-                  prizeDestination: getTokenAccount(umi, prizePk, winner),
-                  metadataProgram: MPL_TOKEN_METADATA_PROGRAM_ID,
-                  sysvarInstructions: anchor.web3.SYSVAR_INSTRUCTIONS_PUBKEY,
-                  authority: raffler.account.authority,
-                  winner,
-                  authRules: prizeDa ? unwrapOptionRecursively(prizeDa.metadata.programmableConfig)?.ruleSet : null,
-                  authRulesProgram: isPnft ? MPL_TOKEN_AUTH_RULES_PROGRAM_ID : null,
-                })
-                .remainingAccounts(remainingAccounts)
-                .instruction()
-            ),
-            bytesCreatedOnChain: 0,
-            signers: [umi.identity],
-          })
+        let tx = transactionBuilder().add({
+          instruction: fromWeb3JsInstruction(
+            await program.methods
+              .claimPrize(winnerIndex)
+              .accounts({
+                programConfig: findProgramConfigPda(),
+                raffle: rafflePk,
+                raffler: raffle.account.raffler,
+                proceedsMint,
+                feesWallet: FEES_WALLET,
+                feesWalletToken: proceedsMint ? getTokenAccount(umi, proceedsMint, FEES_WALLET) : null,
+                proceedsSource: proceedsMint ? getTokenAccount(umi, proceedsMint, rafflePk) : null,
+                proceedsDestination: proceedsMint ? getTokenAccount(umi, proceedsMint, treasury) : null,
+                entrants: raffle.account.entrants,
+                prize: prizePk,
+                treasury,
+                prizeCustody: getTokenAccount(umi, prizePk, rafflePk),
+                prizeDestination: getTokenAccount(umi, prizePk, winner),
+                metadataProgram: MPL_TOKEN_METADATA_PROGRAM_ID,
+                sysvarInstructions: anchor.web3.SYSVAR_INSTRUCTIONS_PUBKEY,
+                authority: raffler.account.authority,
+                winner,
+                authRules: prizeDa ? unwrapOptionRecursively(prizeDa.metadata.programmableConfig)?.ruleSet : null,
+                authRulesProgram: isPnft ? MPL_TOKEN_AUTH_RULES_PROGRAM_ID : null,
+              })
+              .remainingAccounts(remainingAccounts)
+              .instruction()
+          ),
+          bytesCreatedOnChain: 0,
+          signers: [umi.identity],
+        })
 
-        const fee = await getPriorityFeesForTx(
-          base58.encode(umi.transactions.serialize(await tx.buildWithLatestBlockhash(umi))),
-          feeLevel
-        )
-
-        if (fee) {
-          tx = tx.prepend(setComputeUnitPrice(umi, { microLamports: fee }))
-        }
-
-        const res = await tx.sendAndConfirm(umi)
-        if (res.result.value.err) {
-          throw new Error("Error claiming")
-        }
-
-        setRaffleState(RaffleState.claimed)
+        const { chunks, txFee } = await packTx(umi, tx, feeLevel, 500_000)
+        const signed = await Promise.all(chunks.map((c) => c.buildAndSign(umi)))
+        return await sendAllTxsWithRetries(umi, program.provider.connection, signed, 1 + (txFee ? 1 : 0))
       })
 
       toast.promise(promise, {
@@ -693,6 +657,7 @@ export default function SingleRaffle() {
 
       await promise
       setShowConfetti(false)
+      setRaffleState(RaffleState.claimed)
     } catch (err: any) {
       console.error(err)
     } finally {
@@ -704,20 +669,20 @@ export default function SingleRaffle() {
   const isSystemAdmin = wallet.publicKey?.toBase58() === adminWallet
 
   useEffect(() => {
-    if (!raffle.account.randomness || !raffle.account.randomness.length || !raffle.entrants) {
+    if (!raffle.account.randomness || !raffle.account.randomness.length || !entrants) {
       return
     }
 
     ;(async () => {
       const winnerRand = expandRandomness(raffle.account.randomness!)
-      const winnerIndex = winnerRand % raffle.entrants.total
+      const winnerIndex = winnerRand % entrants.total
 
       const entrantsArray =
         data.entrantsArray || (await getEntrantsArray(umi, fromWeb3JsPublicKey(raffle.account.entrants)))
       const winner = entrantsArray[winnerIndex]
       setWinner(winner)
     })()
-  }, [raffle.account.randomness, raffle.entrants])
+  }, [raffle.account.randomness, entrants])
 
   const isWinner = wallet.publicKey && winner && wallet.publicKey.toBase58() === winner
 
@@ -751,7 +716,7 @@ export default function SingleRaffle() {
       <BackArrow label="All raffles" />
       <div className="flex flex-col-reverse lg:flex-row gap-10">
         <div className="lg:w-1/3 w-full">
-          <Prize raffle={raffle} raffleState={raffleState} />
+          <Prize raffle={raffle} entrants={entrants} raffleState={raffleState} />
         </div>
 
         <Card className="lg:w-2/3 w-full overflow-visible">
@@ -850,14 +815,14 @@ export default function SingleRaffle() {
                 <div className="flex items-end justify-start h-full">
                   <div>
                     <p className="text-xs font-bold uppercase">Starts in</p>
-                    <Countdown until={raffle.account.startTime.toNumber()} className="text-xl" />
+                    <Countdown until={raffle.account.startTime.toNumber()} className="text-xl" urgent={false} />
                   </div>
                 </div>
               ) : (
                 <div className="flex items-end justify-start h-full">
                   <div>
                     <p className="text-xs font-bold uppercase">Ends in</p>
-                    {(raffle.entrants?.total || 0) < (raffle.entrants?.max || 0) ? (
+                    {(entrants?.total || 0) < (entrants?.max || 0) ? (
                       <Countdown until={raffle.account.endTime.toNumber()} className="text-xl" />
                     ) : (
                       <p className="text-xl">ENDED</p>
@@ -868,8 +833,8 @@ export default function SingleRaffle() {
             </>
 
             <div className="flex gap-3 items-end">
-              {isAdmin && !raffle.account.claimed && raffle.entrants?.total === 0 && (
-                <Button isDisabled={loading || (raffle.entrants?.total || 0) > 0} onClick={cancelRaffle} color="danger">
+              {isAdmin && !raffle.account.claimed && entrants?.total === 0 && (
+                <Button isDisabled={loading || (entrants?.total || 0) > 0} onClick={cancelRaffle} color="danger">
                   Cancel raffle
                 </Button>
               )}
@@ -885,8 +850,8 @@ export default function SingleRaffle() {
                   <div className="flex justify-between">
                     <p className="font-bold">Current entrants:</p>
                     <p className="font-bold text-primary">
-                      {raffle.entrants?.total.toString() || 0} /{" "}
-                      {raffle.entrants?.max.toString() === "4294967295" ? "∞" : raffle.entrants?.max.toString() || 0}
+                      {entrants?.total.toString() || 0} /{" "}
+                      {entrants?.max.toString() === "4294967295" ? "∞" : entrants?.max.toString() || 0}
                     </p>
                   </div>
                   <div className="flex gap-3 items-end">
@@ -904,7 +869,7 @@ export default function SingleRaffle() {
 
                     <Button
                       color="primary"
-                      isDisabled={!raffle.entrants || !wallet.publicKey}
+                      isDisabled={!entrants || !wallet.publicKey}
                       onClick={
                         raffle.account.paymentType.nft
                           ? toggleNftSelector
@@ -931,7 +896,7 @@ export default function SingleRaffle() {
                   </div>
                 </div>
               )}
-              {raffleState === RaffleState.ended && raffle.entrants.total > 0 && (
+              {raffleState === RaffleState.ended && entrants.total > 0 && (
                 <Button color="primary" onClick={draw}>
                   Draw winners
                 </Button>
@@ -962,7 +927,7 @@ export default function SingleRaffle() {
   )
 }
 
-function ClaimNfts({ raffle }: { raffle: RaffleWithPublicKeyAndEntrants }) {
+function ClaimNfts({ raffle }: { raffle: RaffleWithPublicKey }) {
   const { feeLevel } = usePriorityFees()
   const [nfts, setNfts] = useState<DAS.GetAssetResponse[]>([])
   const [loading, setLoading] = useState(false)

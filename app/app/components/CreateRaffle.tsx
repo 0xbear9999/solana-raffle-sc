@@ -10,7 +10,7 @@ export function CreateRaffle() {
         <Link to="/create" className="flex flex-col items-center justify-center gap-2">
           <PlusCircleIcon className="text-primary w-8" />
           <p className="text-xl font-bold uppercase">
-            Create <Title />
+            Create <Title app="raffler" />
           </p>
         </Link>
       </CardBody>
