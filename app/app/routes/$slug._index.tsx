@@ -138,7 +138,7 @@ function Section({ raffles = [], label }: { raffles: RaffleWithPublicKeyAndEntra
         </div>
       ) : (
         <div className="flex justify-center items-center h-40">
-          <p className="font-bold bg-background text-xl py-2 px-4 rounded-xl">No {label.toLowerCase()} raffles</p>
+          <p className="font-bold bg-background text-xl">No {label.toLowerCase()} raffles</p>
         </div>
       )}
     </div>

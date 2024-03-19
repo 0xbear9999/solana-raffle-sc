@@ -727,7 +727,7 @@ export default function SingleRaffle() {
     <div className="flex flex-col gap-3 mt-10">
       {showConfetti && (
         <div className="flex w-full items-center justify-center z-1">
-          <h1 className="text-primary uppercase font-bold text-3xl bg-background px-3 rounded-xl">YOU WON!!</h1>
+          <h1 className="text-primary uppercase font-bold text-3xl">YOU WON!!</h1>
           <ConfettiExplosion
             particleCount={200}
             width={2000}
