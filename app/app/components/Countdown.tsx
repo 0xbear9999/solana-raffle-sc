@@ -45,7 +45,7 @@ export function Countdown({
 
   const timerComponents = Object.keys(timeLeft)
     .filter((k) => k !== "difference")
-    .map((interval) => {
+    .map((interval, index) => {
       if (!timeLeft[interval as keyof object]) {
         if (interval === "days") {
           return
@@ -61,7 +61,7 @@ export function Countdown({
       }
 
       return (
-        <span className={cn({ [thresholdClassName]: timeLeft.difference <= threshold })}>
+        <span key={index} className={cn({ [thresholdClassName]: timeLeft.difference <= threshold })}>
           {timeLeft[interval as keyof object]}
           {compact ? "" : " "}
           {compact

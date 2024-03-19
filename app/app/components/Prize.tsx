@@ -73,6 +73,10 @@ export function Prize({ raffle, raffleState }: { raffle: RaffleWithPublicKeyAndE
     })()
   }, [raffle.account.prize.toBase58(), wallet.publicKey?.toBase58()])
 
+  useEffect(() => {
+    console.log({ digitalAsset })
+  }, [digitalAsset])
+
   return (
     <div className="w-full aspect-square flex items-center justify-center relative">
       {raffle.account.prizeType.nft ? (

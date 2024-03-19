@@ -170,8 +170,8 @@ function Layout({ children }: PropsWithChildren) {
         <NavbarMenuToggle aria-label={isMenuOpen ? "Close menu" : "Open menu"} className="sm:hidden" />
 
         <NavbarContent justify="end" className="hidden sm:flex gap-10">
-          {menuItems.map((item) => (
-            <NavbarItem>
+          {menuItems.map((item, index) => (
+            <NavbarItem key={index}>
               <Link to={item.href} className={cn("font-bold", { "text-primary": pathname === item.href })}>
                 {item.label}
               </Link>
