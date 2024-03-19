@@ -904,7 +904,7 @@ export default function SingleRaffle() {
 
                     <Button
                       color="primary"
-                      isDisabled={!raffle.entrants}
+                      isDisabled={!raffle.entrants || !wallet.publicKey}
                       onClick={
                         raffle.account.paymentType.nft
                           ? toggleNftSelector

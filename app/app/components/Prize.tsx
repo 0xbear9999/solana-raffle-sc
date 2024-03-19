@@ -23,9 +23,6 @@ export function Prize({ raffle, raffleState }: { raffle: RaffleWithPublicKeyAndE
   const [prizeToken, setPrizeToken] = useState<DigitalAsset | null>(null)
 
   useEffect(() => {
-    if (!wallet.publicKey) {
-      return
-    }
     if (!raffle.account.prize) {
       setDigitalAsset(null)
       setPrizeToken(null)
@@ -71,11 +68,7 @@ export function Prize({ raffle, raffleState }: { raffle: RaffleWithPublicKeyAndE
         }
       }
     })()
-  }, [raffle.account.prize.toBase58(), wallet.publicKey?.toBase58()])
-
-  useEffect(() => {
-    console.log({ digitalAsset })
-  }, [digitalAsset])
+  }, [raffle.account.prize.toBase58()])
 
   return (
     <div className="w-full aspect-square flex items-center justify-center relative">

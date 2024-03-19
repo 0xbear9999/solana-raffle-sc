@@ -146,6 +146,7 @@ function Section({ raffles = [], label }: { raffles: RaffleWithPublicKeyAndEntra
 }
 
 function Raffle({ raffle: initialRaffle }: { raffle: RaffleWithPublicKeyAndEntrants }) {
+  const wallet = useWallet()
   const [raffle, setRaffle] = useState(initialRaffle)
   const { feeLevel } = usePriorityFees()
   const [loading, setLoading] = useState(false)
@@ -304,6 +305,7 @@ function Raffle({ raffle: initialRaffle }: { raffle: RaffleWithPublicKeyAndEntra
                   feeLevel,
                 })
               }
+              isDisabled={!wallet.publicKey}
               color="primary"
             >
               Buy ticket{["0", "1", ""].includes(numTickets) ? "" : "s"}
