@@ -146,7 +146,7 @@ export default function SingleRaffle() {
     account: raffleProgram.coder.accounts.decode("raffle", Buffer.from(data.raffle)),
   })
   const [entrants, setEntrants] = useState(data.entrants)
-  const [raffleState, setRaffleState] = useState<RaffleState>(RaffleState.notStarted)
+  const [raffleState, setRaffleState] = useState<RaffleState>(RaffleState.inProgress)
   const { feeLevel } = usePriorityFees()
   const raffler = useOutletContext<RafflerWithPublicKey>()
   const [loading, setLoading] = useState(false)
@@ -247,6 +247,7 @@ export default function SingleRaffle() {
       if (!isLive(state)) {
         clearInterval(interval.current)
       }
+      console.log({ state })
       setRaffleState(state)
     }
     tick()
@@ -727,7 +728,9 @@ export default function SingleRaffle() {
       <BackArrow label="All raffles" />
       <div className="flex flex-col-reverse lg:flex-row gap-10">
         <div className="lg:w-1/3 w-full">
-          <Prize raffle={raffle} entrants={entrants} raffleState={raffleState} />
+          <Card>
+            <Prize raffle={raffle} entrants={entrants} raffleState={raffleState} />
+          </Card>
         </div>
 
         <Card className="lg:w-2/3 w-full overflow-visible">

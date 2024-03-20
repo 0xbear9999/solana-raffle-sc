@@ -224,7 +224,7 @@ function Raffle({
   const [token, setToken] = useState<DigitalAsset | null>(null)
   const [digitalAsset, setDigitalAsset] = useState<DAS.GetAssetResponse | null>(null)
   const raffleProgram = useRaffle()
-  const [raffleState, setRaffleState] = useState<RaffleState>(RaffleState.notStarted)
+  const [raffleState, setRaffleState] = useState<RaffleState>(RaffleState.inProgress)
 
   useEffect(() => {
     setRaffle(initialRaffle)
