@@ -158,6 +158,15 @@ export default function SingleRaffle() {
   const wallet = useWallet()
 
   useEffect(() => {
+    ;(async () => {
+      const {
+        data: { digitalAsset },
+      } = await axios.get<{ digitalAsset: DAS.GetAssetResponse }>(`/api/get-nft/${raffle.account.prize.toBase58()}`)
+      setDigitalAsset(digitalAsset)
+    })()
+  }, [raffle.account.prize])
+
+  useEffect(() => {
     if (wallet.publicKey?.toBase58() === winner && !raffle.account.claimed) {
       setShowConfetti(true)
     }
@@ -665,7 +674,7 @@ export default function SingleRaffle() {
     }
   }
 
-  const isAdmin = wallet.publicKey?.toBase58() === raffler.account.authority.toBase58()
+  const isAdmin = wallet.publicKey?.toBase58() === raffler?.account.authority.toBase58()
   const isSystemAdmin = wallet.publicKey?.toBase58() === adminWallet
 
   useEffect(() => {
@@ -687,6 +696,8 @@ export default function SingleRaffle() {
   const isWinner = wallet.publicKey && winner && wallet.publicKey.toBase58() === winner
 
   const collectionMetadata = digitalAsset?.grouping?.find((g) => g.group_key === "collection")?.collection_metadata
+
+  console.log(digitalAsset)
 
   return (
     <div className="flex flex-col gap-3 mt-10">

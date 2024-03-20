@@ -17,10 +17,10 @@ export function RaffleStateChip({
         {
           [RaffleState.notStarted]: "primary",
           [RaffleState.ended]: "warning",
-          [RaffleState.inProgress]: "success",
+          [RaffleState.inProgress]: "primary",
           [RaffleState.cancelled]: "danger",
           [RaffleState.awaitingRandomness]: "warning",
-          [RaffleState.claimed]: "success",
+          [RaffleState.claimed]: "primary",
           [RaffleState.drawn]: "danger",
         }[raffleState] as any
       }

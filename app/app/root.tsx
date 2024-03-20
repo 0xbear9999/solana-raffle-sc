@@ -115,7 +115,7 @@ export default function App() {
         <Providers rpcHost={rpcHost} theme={theme} key={pathname}>
           <Layout>
             <Outlet />
-            {!childRoute && pathname !== "/create" && <CreateRaffle />}
+            {!childRoute && pathname !== "/create" && !pathname.includes("/all") && <CreateRaffle />}
           </Layout>
           <ScrollRestoration />
           <Scripts />

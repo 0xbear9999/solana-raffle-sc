@@ -11,6 +11,8 @@ import {
   CircularProgress,
   Image,
   Input,
+  Select,
+  SelectItem,
   Tab,
   Tabs,
 } from "@nextui-org/react"
@@ -43,24 +45,30 @@ import { getMultipleAccounts, getProgramAccounts } from "~/helpers/index.server"
 import { Prize } from "~/components/Prize"
 import { adminWallet } from "~/constants"
 
-export const loader: LoaderFunction = async ({ params, context }) => {
-  const raffler = await getRafflerFromSlug(params.slug as string)
-  if (!raffler) {
+export const loader: LoaderFunction = async ({ params }) => {
+  const raffler = params.slug !== "all" && (await getRafflerFromSlug(params.slug as string))
+  if (!raffler && params.slug !== "all") {
     throw new Response("Not found", { status: 404, statusText: "Not found" })
   }
+  console.log("OK", raffler)
   const raffles: RaffleWithPublicKey[] = await getProgramAccounts(
     raffleProgram,
     "raffle",
-    [
-      {
-        memcmp: {
-          bytes: raffler.publicKey.toBase58(),
-          offset: 8,
-        },
-      },
-    ],
-    true
+    raffler
+      ? [
+          {
+            memcmp: {
+              bytes: raffler.publicKey.toBase58(),
+              offset: 8,
+            },
+          },
+        ]
+      : [],
+    true,
+    308
   )
+
+  console.log(raffles)
 
   const entrants = await getMultipleAccounts(
     raffles.map((r) => r.account.entrants),
@@ -86,10 +94,12 @@ export const loader: LoaderFunction = async ({ params, context }) => {
 }
 
 export default function Raffles() {
+  const [tab, setTab] = useState("live")
   const wallet = useWallet()
   const data = useLoaderData<typeof loader>()
   const raffleProgram = useRaffle()
   const raffler = useOutletContext<RafflerWithPublicKey>()
+  const [filter, setFilter] = useState(new Set(["all"]))
   const raffles: RaffleWithPublicKeyAndEntrants[] = data.raffles.map((r: any) => {
     return {
       publicKey: new anchor.web3.PublicKey(r.publicKey),
@@ -104,47 +114,74 @@ export default function Raffles() {
   })
 
   const isAdmin =
-    wallet.publicKey?.toBase58() === raffler.account.authority.toBase58() ||
+    wallet.publicKey?.toBase58() === raffler?.account.authority.toBase58() ||
     wallet.publicKey?.toBase58() === adminWallet
+
+  useEffect(() => {
+    console.log(tab)
+  }, [tab])
+
+  const filters = raffles.map((r) => ({ value: r.account.paymentType.token?.tokenMint.toBase58(), label: "hi" }))
 
   return (
     <div className="flex flex-col gap-6 mt-10">
-      <Tabs size="lg">
-        <Tab title="Live">
-          <Section
-            label="Live"
-            raffles={orderBy(grouped[RaffleState.inProgress], (raffle) => raffle.account.endTime.toNumber())}
-          />
-        </Tab>
-        <Tab title="Ended">
-          <Section
-            label="Ended"
-            raffles={orderBy([...(grouped[RaffleState.ended] || []), ...(grouped[RaffleState.drawn] || [])], (raffle) =>
-              raffle.account.endTime.toNumber()
-            )}
-          />
-        </Tab>
-        <Tab title="Upcoming">
-          <Section
-            label="Upcoming"
-            raffles={orderBy(grouped[RaffleState.notStarted], (raffle) => raffle.account.startTime.toNumber())}
-          />
-        </Tab>
-        <Tab title="Past">
-          <Section
-            label="Past"
-            raffles={orderBy(grouped[RaffleState.claimed], (raffle) => raffle.account.startTime.toNumber())}
-          />
-        </Tab>
-        {isAdmin && (
-          <Tab title="Cancelled">
-            <Section
-              label="Cancelled"
-              raffles={orderBy(grouped[RaffleState.cancelled], (raffle) => raffle.account.startTime.toNumber())}
-            />
-          </Tab>
-        )}
-      </Tabs>
+      <div className="flex flex-row justify-between gap-3 items-center">
+        <Tabs size="lg" selectedKey={tab} onSelectionChange={(tab) => setTab(tab)}>
+          <Tab title="Live" key="live" />
+          <Tab title="Ended" key="ended" />
+          <Tab title="Upcoming" key="upcoming" />
+
+          <Tab title="Past" key="past" />
+          {isAdmin && <Tab title="Cancelled" key="cancelled" />}
+        </Tabs>
+        {/* <Select
+          value="all"
+          label="Type"
+          variant="bordered"
+          className="max-w-xs"
+          selectedKeys={filter}
+          onSelectionChange={setFilter}
+          items={[{ value: "all", label: "All" }, ...filters]}
+        >
+          {(filter) => (
+            <SelectItem className="bg-background" key={filter.value}>
+              {filter.label}
+            </SelectItem>
+          )}
+        </Select> */}
+      </div>
+      {tab === "live" && (
+        <Section
+          label="Live"
+          raffles={orderBy(grouped[RaffleState.inProgress], (raffle) => raffle.account.endTime.toNumber())}
+        />
+      )}
+      {tab === "ended" && (
+        <Section
+          label="Ended"
+          raffles={orderBy([...(grouped[RaffleState.ended] || []), ...(grouped[RaffleState.drawn] || [])], (raffle) =>
+            raffle.account.endTime.toNumber()
+          )}
+        />
+      )}
+      {tab === "upcoming" && (
+        <Section
+          label="Upcoming"
+          raffles={orderBy(grouped[RaffleState.notStarted], (raffle) => raffle.account.startTime.toNumber())}
+        />
+      )}
+      {tab === "past" && (
+        <Section
+          label="Past"
+          raffles={orderBy(grouped[RaffleState.claimed], (raffle) => raffle.account.startTime.toNumber())}
+        />
+      )}
+      {tab === "cancelled" && (
+        <Section
+          label="Cancelled"
+          raffles={orderBy(grouped[RaffleState.cancelled], (raffle) => raffle.account.startTime.toNumber())}
+        />
+      )}
     </div>
   )
 }
@@ -161,7 +198,7 @@ function Section({ raffles = [], label }: { raffles: RaffleWithPublicKeyAndEntra
         </div>
       ) : (
         <div className="flex justify-center items-center h-40">
-          <p className="font-bold bg-background text-xl">No {label.toLowerCase()} raffles</p>
+          <p className="font-bold bg-background text-xl rounded-xl px-2 py-1">No {label.toLowerCase()} raffles</p>
         </div>
       )}
     </div>

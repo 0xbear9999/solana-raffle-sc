@@ -52,6 +52,13 @@ export default function Index() {
   return (
     <div className="container m-x-auto h-full">
       <div className="grid gap-6 lg:grid-cols-4 grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:gid-cols-5">
+        <Link to="/all">
+          <Card className="h-40">
+            <CardBody className="flex items-center justify-center">
+              <Title app="all" size="text-3xl" />
+            </CardBody>
+          </Card>
+        </Link>
         {rafflers.map((raffler: RafflerWithPublicKey) => (
           <Raffler raffler={raffler} />
         ))}

@@ -27,6 +27,11 @@ export const meta: MetaFunction = ({ data }: { data: any }) => {
 
 export const loader: LoaderFunction = async ({ params }) => {
   const { slug } = params
+  if (slug === "all") {
+    return json({
+      all: true,
+    })
+  }
   const raffler: RafflerWithPublicKey = await getRafflerFromSlug(slug as string)
   const staker = raffler?.account.staker ? await getAccount(raffler.account.staker, "staker", stakeProgram) : null
   const encoded = await raffleProgram.coder.accounts.encode("raffler", raffler?.account)
@@ -58,13 +63,15 @@ export default function Raffle() {
   const { pathname } = useLocation()
   const data = useLoaderData<typeof loader>()
   const raffleProgram = useRaffle()
-  const raffler: RafflerWithPublicKey = {
-    publicKey: new anchor.web3.PublicKey(data.raffler.publicKey),
-    account: raffleProgram.coder.accounts.decode("raffler", Buffer.from(data.raffler.account)),
-  }
+  const raffler: RafflerWithPublicKey | null = !data.all
+    ? {
+        publicKey: new anchor.web3.PublicKey(data.raffler.publicKey),
+        account: raffleProgram.coder.accounts.decode("raffler", Buffer.from(data.raffler.account)),
+      }
+    : null
   const wallet = useWallet()
 
-  const isAdmin = wallet.publicKey?.toBase58() === raffler.account.authority.toBase58()
+  const isAdmin = wallet.publicKey?.toBase58() === raffler?.account.authority.toBase58()
 
   async function toggleActive(active: boolean) {
     try {
@@ -75,7 +82,7 @@ export default function Raffle() {
             await raffleProgram.methods
               .toggleActive(active)
               .accounts({
-                raffler: raffler.publicKey,
+                raffler: raffler?.publicKey,
                 programData: findProgramDataAddress(),
                 program: raffleProgram.programId,
               })
@@ -106,40 +113,43 @@ export default function Raffle() {
 
   return (
     <div className="h-full flex flex-col gap-4 ">
-      <div className="flex gap-2 justify-between align-middle">
-        <Link to=".">
-          {theme?.logo ? (
-            <img src={theme?.logo} className="h-20" />
-          ) : (
-            <h3 className="text-3xl">{raffler.account.name}</h3>
-          )}
-        </Link>
+      {raffler && (
+        <div className="flex gap-2 justify-between align-middle">
+          <Link to=".">
+            {theme?.logo ? (
+              <img src={theme?.logo} className="h-20" />
+            ) : (
+              <h3 className="text-3xl">{raffler.account.name}</h3>
+            )}
+          </Link>
 
-        {isAdmin && !pathname.includes("/create") && (
-          <div>
-            <Link to="create">
-              <Button color="primary">Create new raffle</Button>
-            </Link>
-          </div>
-        )}
-        {(isAdmin || wallet.publicKey?.toBase58()) === adminWallet && pathname.includes("/admin") && (
-          <div className="flex items-center gap-1">
-            <Switch
-              checked={raffler.account.isActive}
-              onValueChange={(checked) => toggleActive(checked)}
-              isDisabled={loading}
-            />
-            <p>Active</p>
-            <Popover
-              title="Raffler active"
-              content="Check this toggle to display raffler on public homepage"
-              placement="left"
-            />
-          </div>
-        )}
-      </div>
+          {isAdmin && !pathname.includes("/create") && (
+            <div>
+              <Link to="create">
+                <Button color="primary">Create new raffle</Button>
+              </Link>
+            </div>
+          )}
+          {(isAdmin || wallet.publicKey?.toBase58()) === adminWallet && pathname.includes("/admin") && (
+            <div className="flex items-center gap-1">
+              <Switch
+                checked={raffler.account.isActive}
+                onValueChange={(checked) => toggleActive(checked)}
+                isDisabled={loading}
+              />
+              <p>Active</p>
+              <Popover
+                title="Raffler active"
+                content="Check this toggle to display raffler on public homepage"
+                placement="left"
+              />
+            </div>
+          )}
+        </div>
+      )}
+
       <div className="flex-1">
-        <Outlet context={raffler} />
+        <Outlet context={raffler} key={raffler?.publicKey.toBase58()} />
       </div>
     </div>
   )

@@ -6,7 +6,8 @@ export async function getProgramAccounts(
   program: anchor.Program<any>,
   type: string,
   filters: GetProgramAccountsFilter[] = [],
-  decode = false
+  decode = false,
+  size?: number
 ) {
   const { data } = await axios.post(process.env.RPC_HOST!, {
     jsonrpc: "2.0",
@@ -22,10 +23,19 @@ export async function getProgramAccounts(
             memcmp: program.coder.accounts.memcmp(type),
           },
           ...filters,
+          ...(size
+            ? [
+                {
+                  dataSize: size,
+                },
+              ]
+            : []),
         ],
       },
     ],
   })
+
+  console.log(data.result)
 
   return await Promise.all(
     data.result.map(async (item: any) => {

@@ -5,7 +5,7 @@ import {
 } from "@metaplex-foundation/mpl-token-metadata"
 import { fetchMint, fetchToken } from "@metaplex-foundation/mpl-toolbox"
 import { fromWeb3JsPublicKey } from "@metaplex-foundation/umi-web3js-adapters"
-import { Card, CircularProgress, Image } from "@nextui-org/react"
+import { Card, Chip, CircularProgress, Image } from "@nextui-org/react"
 import { useWallet } from "@solana/wallet-adapter-react"
 import axios from "axios"
 import { DAS } from "helius-sdk"
@@ -34,7 +34,7 @@ export function Prize({
   const wallet = useWallet()
   const umi = useUmi()
   const [digitalAsset, setDigitalAsset] = useState<DAS.GetAssetResponse | null>(null)
-  const [prizeToken, setPrizeToken] = useState<DigitalAsset | null>(null)
+  const [prizeToken, setPrizeToken] = useState<TokenWithTokenInfo | null>(null)
 
   useEffect(() => {
     if (!raffle.account.prize) {
@@ -53,32 +53,14 @@ export function Prize({
         setPrizeToken(null)
       } else {
         try {
-          const mint = fromWeb3JsPublicKey(raffle.account.prize)
-          const token = getTokenAccount(umi, mint, fromWeb3JsPublicKey(raffle.publicKey))
-          const da = await fetchDigitalAssetWithToken(umi, mint, token)
-          setPrizeToken(da)
-          setDigitalAsset(null)
-        } catch (err: any) {
-          if (err.message.includes("The account of type [Metadata] was not found")) {
-            const tokenMint = fromWeb3JsPublicKey(raffle.account.prize)
-            const mint = await fetchMint(umi, tokenMint)
-            const { data } = await axios.get<{ digitalAsset: TokenWithTokenInfo }>(`/api/get-nft/${tokenMint}`)
-
-            setPrizeToken({
-              metadata: {
-                name:
-                  data.digitalAsset.content?.metadata.name ||
-                  data.digitalAsset.content?.metadata.symbol ||
-                  data.digitalAsset.token_info.symbol ||
-                  "Unknown token",
-                symbol: data.digitalAsset.content?.metadata.symbol || data.digitalAsset.token_info.symbol,
-              } as any,
-              mint,
-              publicKey: tokenMint,
-            })
-          } else {
-            console.error(err)
-          }
+          const { data } = await axios.get<{ digitalAssets: TokenWithTokenInfo[] }>(
+            `/api/get-fungibles/${raffle.publicKey.toBase58()}`
+          )
+          const token = data.digitalAssets.find((da) => da.id === raffle.account.prize.toBase58()) || null
+          console.log(token)
+          setPrizeToken(token)
+        } catch {
+          console.log("error looking up token")
         }
       }
     })()
@@ -89,17 +71,31 @@ export function Prize({
       {raffle.account.prizeType.nft ? (
         <>{digitalAsset ? <Image src={imageCdn(digitalAsset.content?.links?.image!)} /> : <CircularProgress />}</>
       ) : (
-        <Card className="w-full h-full flex justify-center items-center">
+        <Card className="w-full h-full">
           {prizeToken ? (
-            <p className="text-primary font-bold text-2xl">
-              {(
-                Number(
-                  (BigInt(raffle.account.prizeType.token.amount.toString()) * 1000n) /
-                    BigInt(Math.pow(10, prizeToken.mint.decimals))
-                ) / 1000
-              ).toLocaleString()}{" "}
-              {prizeToken.metadata.symbol || "$TOKEN"}
-            </p>
+            <div
+              className="w-full h-full flex justify-center items-center"
+              style={{
+                backgroundImage: `url(${imageCdn(prizeToken?.content?.links?.image!)}`,
+                backgroundSize: "contain",
+                backgroundRepeat: "no-repeat",
+              }}
+            >
+              <p className="text-primary font-bold text-2xl bg-background rounded-xl px-2 py-1">
+                {(
+                  Number(
+                    (BigInt(raffle.account.prizeType.token.amount.toString()) * 1000n) /
+                      BigInt(Math.pow(10, prizeToken.token_info.decimals))
+                  ) / 1000
+                ).toLocaleString()}{" "}
+                {prizeToken.token_info.symbol || "$TOKEN"}
+              </p>
+              {prizeToken.token_info.price_info.total_price && (
+                <Chip className="absolute bottom-5 left-5" color="primary">
+                  ${prizeToken.token_info.price_info.total_price.toLocaleString()}
+                </Chip>
+              )}
+            </div>
           ) : (
             <CircularProgress />
           )}
