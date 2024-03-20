@@ -19,7 +19,7 @@ import { Link, useLoaderData, useOutletContext } from "@remix-run/react"
 import { useWallet } from "@solana/wallet-adapter-react"
 import axios from "axios"
 import { DAS } from "helius-sdk"
-import _, { omit } from "lodash"
+import _, { omit, orderBy } from "lodash"
 import { useEffect, useRef, useState } from "react"
 import { Countdown } from "~/components/Countdown"
 import { RaffleStateChip } from "~/components/RaffleStateChip"
@@ -111,23 +111,37 @@ export default function Raffles() {
     <div className="flex flex-col gap-6 mt-10">
       <Tabs size="lg">
         <Tab title="Live">
-          <Section label="Live" raffles={grouped[RaffleState.inProgress]} />
+          <Section
+            label="Live"
+            raffles={orderBy(grouped[RaffleState.inProgress], (raffle) => raffle.account.endTime.toNumber())}
+          />
         </Tab>
         <Tab title="Ended">
           <Section
             label="Ended"
-            raffles={[...(grouped[RaffleState.ended] || []), ...(grouped[RaffleState.drawn] || [])]}
+            raffles={orderBy([...(grouped[RaffleState.ended] || []), ...(grouped[RaffleState.drawn] || [])], (raffle) =>
+              raffle.account.endTime.toNumber()
+            )}
           />
         </Tab>
         <Tab title="Upcoming">
-          <Section label="Upcoming" raffles={grouped[RaffleState.notStarted]} />
+          <Section
+            label="Upcoming"
+            raffles={orderBy(grouped[RaffleState.notStarted], (raffle) => raffle.account.startTime.toNumber())}
+          />
         </Tab>
         <Tab title="Past">
-          <Section label="Past" raffles={grouped[RaffleState.claimed]} />
+          <Section
+            label="Past"
+            raffles={orderBy(grouped[RaffleState.claimed], (raffle) => raffle.account.startTime.toNumber())}
+          />
         </Tab>
         {isAdmin && (
           <Tab title="Cancelled">
-            <Section label="Cancelled" raffles={grouped[RaffleState.cancelled]} />
+            <Section
+              label="Cancelled"
+              raffles={orderBy(grouped[RaffleState.cancelled], (raffle) => raffle.account.startTime.toNumber())}
+            />
           </Tab>
         )}
       </Tabs>

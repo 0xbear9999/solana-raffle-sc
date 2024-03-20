@@ -1297,6 +1297,37 @@ export type Raffle = {
           "type": "bool"
         }
       ]
+    },
+    {
+      "name": "toggleActive",
+      "accounts": [
+        {
+          "name": "raffler",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "program",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "programData",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "authority",
+          "isMut": false,
+          "isSigner": true
+        }
+      ],
+      "args": [
+        {
+          "name": "isActive",
+          "type": "bool"
+        }
+      ]
     }
   ],
   "accounts": [
@@ -1913,6 +1944,11 @@ export type Raffle = {
       "code": 6050,
       "name": "BgTooLong",
       "msg": "Bg URI max length 63"
+    },
+    {
+      "code": 6051,
+      "name": "AdminOrSystemAdmin",
+      "msg": "Only the raffle admin or system admin can perform this action"
     }
   ]
 };
@@ -3216,6 +3252,37 @@ export const IDL: Raffle = {
           "type": "bool"
         }
       ]
+    },
+    {
+      "name": "toggleActive",
+      "accounts": [
+        {
+          "name": "raffler",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "program",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "programData",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "authority",
+          "isMut": false,
+          "isSigner": true
+        }
+      ],
+      "args": [
+        {
+          "name": "isActive",
+          "type": "bool"
+        }
+      ]
     }
   ],
   "accounts": [
@@ -3832,6 +3899,11 @@ export const IDL: Raffle = {
       "code": 6050,
       "name": "BgTooLong",
       "msg": "Bg URI max length 63"
+    },
+    {
+      "code": 6051,
+      "name": "AdminOrSystemAdmin",
+      "msg": "Only the raffle admin or system admin can perform this action"
     }
   ]
 };

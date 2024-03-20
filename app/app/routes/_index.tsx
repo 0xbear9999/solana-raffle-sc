@@ -17,10 +17,19 @@ import { Title } from "~/components/Title"
 import { CreateRaffle } from "~/components/CreateRaffle"
 
 export const loader: LoaderFunction = async () => {
-  const rafflers = await getProgramAccounts(raffleProgram, "raffler")
+  const rafflers: RafflerWithPublicKey[] = await getProgramAccounts(raffleProgram, "raffler", undefined, true)
 
   return json({
-    rafflers,
+    rafflers: await Promise.all(
+      rafflers
+        .filter((r) => r.account.isActive)
+        .map(async (r) => {
+          return {
+            publicKey: r.publicKey.toBase58(),
+            account: await raffleProgram.coder.accounts.encode("raffler", r.account),
+          }
+        })
+    ),
   })
 }
 

@@ -132,6 +132,10 @@ pub mod raffle {
     ) -> Result<()> {
         update_raffler_hander(ctx, name, logo, bg, unlink_staker)
     }
+
+    pub fn toggle_active(ctx: Context<ToggleActive>, is_active: bool) -> Result<()> {
+        toggle_active_handler(ctx, is_active)
+    }
 }
 
 #[error_code]
@@ -238,4 +242,6 @@ pub enum RaffleError {
     LogoTooLong,
     #[msg("Bg URI max length 63")]
     BgTooLong,
+    #[msg("Only the raffle admin or system admin can perform this action")]
+    AdminOrSystemAdmin,
 }

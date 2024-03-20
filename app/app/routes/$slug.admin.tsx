@@ -1,7 +1,7 @@
 import { setComputeUnitPrice } from "@metaplex-foundation/mpl-toolbox"
 import { publicKey, transactionBuilder } from "@metaplex-foundation/umi"
 import { fromWeb3JsInstruction } from "@metaplex-foundation/umi-web3js-adapters"
-import { Button, Card, CardBody, CardFooter, CardHeader, Input } from "@nextui-org/react"
+import { Button, Card, CardBody, CardFooter, CardHeader, Input, Switch } from "@nextui-org/react"
 import { json, useNavigate, useOutletContext } from "@remix-run/react"
 import { useWallet } from "@solana/wallet-adapter-react"
 import base58 from "bs58"

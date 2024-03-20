@@ -13,6 +13,7 @@ pub use init_raffle::*;
 pub use recover_nft::*;
 pub use set_entrants_uri::*;
 pub use set_slugs::*;
+pub use toggle_active::*;
 pub use update_program_config::*;
 pub use update_raffler::*;
 
@@ -31,5 +32,6 @@ pub mod init_raffle;
 pub mod recover_nft;
 pub mod set_entrants_uri;
 pub mod set_slugs;
+pub mod toggle_active;
 pub mod update_program_config;
 pub mod update_raffler;

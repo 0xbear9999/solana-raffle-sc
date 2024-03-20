@@ -2,13 +2,13 @@ import { KeypairSigner, PublicKey, generateSigner, sol } from "@metaplex-foundat
 import { fromWeb3JsPublicKey } from "@metaplex-foundation/umi-web3js-adapters"
 import { assert } from "chai"
 import { adminProgram, createNewUser } from "../helper"
-import { createRaffle, claimPrize, buyTicketsToken, createRaffloor } from "../helpers/instructions"
+import { createRaffle, claimPrize, buyTicketsToken, createRaffloor, toggleRaffler } from "../helpers/instructions"
 import { findRafflePda, nativeMint, getTokenAccount } from "../helpers/pdas"
 import { umi } from "../helpers/umi"
 import { getTokenAmount, expectFail, assertErrorCode } from "../helpers/utils"
 import { createNft } from "../helpers/create-nft"
 
-describe("Aborted by creator", () => {
+describe("Admin actions", () => {
   const entrants = generateSigner(umi)
   const raffle = findRafflePda(entrants.publicKey)
   let authority: KeypairSigner
@@ -39,6 +39,25 @@ describe("Aborted by creator", () => {
     await expectFail(
       () => claimPrize(user, raffle),
       (err) => assertErrorCode(err, "OnlyAdminCanClaim")
+    )
+  })
+
+  it("Can toggle the raffler as raffle authority", async () => {
+    await toggleRaffler(authority, raffler, false)
+    const rafflerAcc = await adminProgram.account.raffler.fetch(raffler)
+    assert.ok(!rafflerAcc.isActive, "Expected raffler to be inactive")
+  })
+
+  it("Can toggle the raffler as system authority", async () => {
+    await toggleRaffler(undefined, raffler, true, adminProgram)
+    const rafflerAcc = await adminProgram.account.raffler.fetch(raffler)
+    assert.ok(rafflerAcc.isActive, "Expected raffler to be active")
+  })
+
+  it("Cannot toggle the raffler as a third party", async () => {
+    await expectFail(
+      () => toggleRaffler(user, raffler, false),
+      (err) => assertErrorCode(err, "AdminOrSystemAdmin")
     )
   })
 

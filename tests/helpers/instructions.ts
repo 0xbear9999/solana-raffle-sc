@@ -3,6 +3,7 @@ import { KeypairSigner, PublicKey, generateSigner, publicKey, unwrapOptionRecurs
 import { adminProgram, createNewUser, programPaidBy } from "../helper"
 import {
   findProgramConfigPda,
+  findProgramDataAddress,
   findRafflePda,
   findRafflerPda,
   getTokenAccount,
@@ -23,6 +24,7 @@ import { MPL_TOKEN_AUTH_RULES_PROGRAM_ID } from "@metaplex-foundation/mpl-token-
 import { RandomnessService, SimpleRandomnessV1SettledEvent } from "@switchboard-xyz/solana-randomness-service"
 import { assert } from "chai"
 import { FEES_WALLET, expandRandomness, getEntrantsArray } from "./utils"
+import { Raffle } from "../../target/types/raffle"
 
 export async function createRaffloor(
   name: string,
@@ -191,7 +193,22 @@ export async function createRaffle({
     .remainingAccounts(remainingAccounts)
     .preInstructions([anchor.web3.ComputeBudgetProgram.setComputeUnitLimit({ units: 500_000 })])
     .rpc()
-    .catch((err) => console.error(err))
+}
+
+export async function toggleRaffler(
+  user: KeypairSigner,
+  raffler: PublicKey,
+  active: boolean,
+  program: anchor.Program<Raffle> = programPaidBy(user)
+) {
+  return await program.methods
+    .toggleActive(active)
+    .accounts({
+      raffler,
+      program: program.programId,
+      programData: findProgramDataAddress(),
+    })
+    .rpc()
 }
 
 export async function buyTicketsToken(
