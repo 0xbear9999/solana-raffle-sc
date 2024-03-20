@@ -97,7 +97,9 @@ export function Prize({
               )}
             </div>
           ) : (
-            <CircularProgress />
+            <div className="w-full h-full flex items-center justify-center">
+              <CircularProgress />
+            </div>
           )}
         </Card>
       )}
