@@ -37,13 +37,17 @@ export const loader: LoaderFunction = async ({ params }) => {
   const encoded = await raffleProgram.coder.accounts.encode("raffler", raffler?.account)
 
   const theme: Theme = {
-    logo: raffler.account.logo
-      ? `https://arweave.net/${raffler.account.logo}`
-      : staker?.theme?.logos[staker.theme.logo] || null,
-    bg: raffler.account.bg
-      ? `https://arweave.net/${raffler.account.bg}`
-      : staker?.theme?.backgrounds[staker.theme.background] || null,
+    logo:
+      raffler.account.logo && raffler.account.logo !== "undefined?ext=undefined"
+        ? `https://arweave.net/${raffler.account.logo}`
+        : staker?.theme?.logos[staker.theme.logo] || null,
+    bg:
+      raffler.account.bg && raffler.account.bg !== "undefined?ext=undefined"
+        ? `https://arweave.net/${raffler.account.bg}`
+        : staker?.theme?.backgrounds[staker.theme.background] || null,
   }
+
+  console.log(raffler.account.logo)
 
   return json({
     raffler: {
