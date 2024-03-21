@@ -42,7 +42,7 @@ import {
 
 import { useLoaderData, useNavigate, useOutletContext } from "@remix-run/react"
 import { DAS } from "helius-sdk"
-import _ from "lodash"
+import _, { orderBy } from "lodash"
 import { ReactElement, useEffect, useRef, useState } from "react"
 import toast from "react-hot-toast"
 import { NftSelector, NftSelectorModal } from "~/components/NftSelector"
@@ -756,7 +756,9 @@ export default function SingleRaffle() {
                   >
                     {(column) => <TableColumn key={column.key}>{column.label}</TableColumn>}
                   </TableHeader>
-                  <TableBody items={Object.values(entrantsGrouped.slice((page - 1) * 10, page * 10))}>
+                  <TableBody
+                    items={orderBy(entrantsGrouped, (item) => item.tickets, "desc").slice((page - 1) * 10, page * 10)}
+                  >
                     {(item) => {
                       return (
                         <TableRow key={item.key}>

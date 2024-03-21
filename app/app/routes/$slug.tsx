@@ -47,8 +47,6 @@ export const loader: LoaderFunction = async ({ params }) => {
         : staker?.theme?.backgrounds[staker.theme.background] || null,
   }
 
-  console.log(raffler.account.logo)
-
   return json({
     raffler: {
       publicKey: raffler?.publicKey,
