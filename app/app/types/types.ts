@@ -2,6 +2,7 @@ import * as anchor from "@coral-xyz/anchor"
 import { Raffle as RaffleProgram } from "./raffle"
 import { Stake } from "./stake"
 import { DAS } from "helius-sdk"
+import { PublicKey } from "@metaplex-foundation/umi"
 
 export type RafflerWithPublicKey = {
   publicKey: anchor.web3.PublicKey
@@ -15,6 +16,7 @@ export type RaffleWithPublicKey = {
 
 export type RaffleWithPublicKeyAndEntrants = RaffleWithPublicKey & {
   entrants: Entrants
+  entrantsArray: PublicKey[]
 }
 
 export type StakerWithPublicKey = {

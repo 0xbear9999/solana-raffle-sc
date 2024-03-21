@@ -94,3 +94,15 @@ export async function getAllFungiblesByOwner(owner: string) {
 
   return nfts
 }
+
+export async function getAllFungibles(ids: string[]) {
+  const assets = await client.rpc.getAssetBatch({
+    ids,
+    displayOptions: {
+      showFungible: true,
+      showCollectionMetadata: true,
+    },
+  } as any)
+
+  return assets
+}

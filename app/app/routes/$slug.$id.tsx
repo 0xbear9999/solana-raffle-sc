@@ -238,10 +238,6 @@ export default function SingleRaffle() {
     }
   }, [raffle.account.entrants.toBase58()])
 
-  useEffect(() => {
-    console.log({ winner })
-  }, [winner])
-
   const program = useRaffle()
 
   useEffect(() => {
@@ -250,7 +246,6 @@ export default function SingleRaffle() {
       if (!isLive(state)) {
         clearInterval(interval.current)
       }
-      console.log({ state })
       setRaffleState(state)
     }
     tick()

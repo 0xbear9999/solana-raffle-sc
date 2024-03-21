@@ -57,7 +57,6 @@ export function Prize({
             `/api/get-fungibles/${raffle.publicKey.toBase58()}`
           )
           const token = data.digitalAssets.find((da) => da.id === raffle.account.prize.toBase58()) || null
-          console.log(token)
           setPrizeToken(token)
         } catch {
           console.log("error looking up token")

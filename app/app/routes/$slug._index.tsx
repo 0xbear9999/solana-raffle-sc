@@ -13,6 +13,7 @@ import {
   Input,
   Select,
   SelectItem,
+  Switch,
   Tab,
   Tabs,
 } from "@nextui-org/react"
@@ -21,7 +22,7 @@ import { Link, useLoaderData, useOutletContext } from "@remix-run/react"
 import { useWallet } from "@solana/wallet-adapter-react"
 import axios from "axios"
 import { DAS } from "helius-sdk"
-import _, { omit, orderBy } from "lodash"
+import _, { omit, orderBy, uniq, uniqBy } from "lodash"
 import { useEffect, useRef, useState } from "react"
 import { Countdown } from "~/components/Countdown"
 import { RaffleStateChip } from "~/components/RaffleStateChip"
@@ -29,7 +30,7 @@ import { useDigitalAssets } from "~/context/digital-assets"
 import { usePriorityFees } from "~/context/priority-fees"
 import { useRaffle } from "~/context/raffle"
 import { useUmi } from "~/context/umi"
-import { entrantsFromUri, getRafflerFromSlug, imageCdn, isLive } from "~/helpers"
+import { dataToPks, entrantsFromUri, getRafflerFromSlug, imageCdn, isLive, shorten } from "~/helpers"
 import { nativeMint } from "~/helpers/pdas"
 import { getRaffleState } from "~/helpers/raffle-state"
 import { raffleProgram } from "~/helpers/raffle.server"
@@ -40,6 +41,7 @@ import {
   RaffleWithPublicKey,
   RaffleWithPublicKeyAndEntrants,
   RafflerWithPublicKey,
+  TokenWithTokenInfo,
 } from "~/types/types"
 import { getMultipleAccounts, getProgramAccounts } from "~/helpers/index.server"
 import { Prize } from "~/components/Prize"
@@ -50,7 +52,7 @@ export const loader: LoaderFunction = async ({ params }) => {
   if (!raffler && params.slug !== "all") {
     throw new Response("Not found", { status: 404, statusText: "Not found" })
   }
-  console.log("OK", raffler)
+
   const raffles: RaffleWithPublicKey[] = await getProgramAccounts(
     raffleProgram,
     "raffle",
@@ -68,87 +70,182 @@ export const loader: LoaderFunction = async ({ params }) => {
     308
   )
 
-  console.log(raffles)
-
-  const entrants = await getMultipleAccounts(
+  const entrantsEncoded = await getMultipleAccounts(
     raffles.map((r) => r.account.entrants),
     "entrants",
-    raffleProgram
+    raffleProgram,
+    false
   )
 
   return json({
     raffles: await Promise.all(
       raffles.map(async (raffle, index) => {
+        const entrants =
+          entrantsEncoded[index] || (raffle.account.uri ? await entrantsFromUri(raffle.account.uri) : null)
+
         return {
           publicKey: raffle.publicKey.toBase58(),
           account: await raffleProgram.coder.accounts.encode("raffle", raffle.account),
-          entrants:
-            entrants[index] ||
-            (raffle.account.uri
-              ? await raffleProgram.coder.accounts.decode("entrants", await entrantsFromUri(raffle.account.uri))
-              : null),
+          entrants: entrants ? await raffleProgram.coder.accounts.decode("entrants", entrants) : null,
+          entrantsArray: entrants ? dataToPks(new Uint8Array(entrants).slice(8 + 4 + 4)) : [],
         }
       })
     ),
   })
 }
 
+type Tab = "live" | "upcoming" | "ended" | "past" | "cancelled"
+type Filter = {
+  label: string
+  value: string
+}
+
 export default function Raffles() {
-  const [tab, setTab] = useState("live")
+  const [tab, setTab] = useState<Tab>("live")
   const wallet = useWallet()
   const data = useLoaderData<typeof loader>()
   const raffleProgram = useRaffle()
   const raffler = useOutletContext<RafflerWithPublicKey>()
   const [filter, setFilter] = useState(new Set(["all"]))
+  const [filters, setFilters] = useState<Filter[]>()
+  const [onlyMine, setOnlyMine] = useState(false)
+
   const raffles: RaffleWithPublicKeyAndEntrants[] = data.raffles.map((r: any) => {
     return {
       publicKey: new anchor.web3.PublicKey(r.publicKey),
       account: raffleProgram.coder.accounts.decode("raffle", Buffer.from(r.account)),
       entrants: r.entrants,
+      entrantsArray: r.entrantsArray,
     }
   })
 
-  const grouped = _.groupBy(raffles, (raffle) => {
-    const state = getRaffleState(omit(raffle, "entrants"), raffle.entrants)
-    return state
-  })
+  const grouped = _.groupBy(
+    raffles
+      .filter(
+        (r) =>
+          filter.has("all") ||
+          (filter.has("nft") && r.account.paymentType.nft) ||
+          filter.has(r.account.paymentType.token?.tokenMint.toBase58() || "")
+      )
+      .filter((r) => {
+        if (!onlyMine) {
+          return true
+        }
+        if (!r.entrantsArray.length || !wallet.publicKey) {
+          return false
+        }
+        return r.entrantsArray.includes(fromWeb3JsPublicKey(wallet.publicKey))
+      }),
+    (raffle) => {
+      const state = getRaffleState(omit(raffle, "entrants"), raffle.entrants)
+      return state
+    }
+  )
 
   const isAdmin =
     wallet.publicKey?.toBase58() === raffler?.account.authority.toBase58() ||
     wallet.publicKey?.toBase58() === adminWallet
 
   useEffect(() => {
-    console.log(tab)
-  }, [tab])
-
-  const filters = raffles.map((r) => ({ value: r.account.paymentType.token?.tokenMint.toBase58(), label: "hi" }))
+    ;(async () => {
+      const tokens = uniq(raffles.map((r) => r.account.paymentType.token?.tokenMint.toBase58()))
+      const {
+        data: { fungibles },
+      } = await axios.post<{ fungibles: TokenWithTokenInfo[] }>("/api/get-fungibles", {
+        mints: tokens,
+      })
+      const filters = [
+        {
+          value: "all",
+          label: "All",
+        },
+        {
+          value: "nft",
+          label: "NFT",
+        },
+        ...uniqBy(
+          fungibles.map((r) => ({
+            value: r.id,
+            label:
+              r.content?.metadata.name ||
+              r.content?.metadata.description ||
+              r.token_info.symbol ||
+              shorten(r.id) ||
+              "Unknown token",
+          })),
+          (item) => item.value
+        ),
+      ]
+      setFilters(filters)
+    })()
+  }, [])
 
   return (
     <div className="flex flex-col gap-6 mt-10">
       <div className="flex flex-row justify-between gap-3 items-center">
-        <Tabs size="lg" selectedKey={tab} onSelectionChange={(tab) => setTab(tab)}>
-          <Tab title="Live" key="live" />
-          <Tab title="Ended" key="ended" />
+        <Tabs
+          size="lg"
+          selectedKey={tab}
+          onSelectionChange={(tab) => setTab(tab as Tab)}
+          items={[
+            {
+              key: "live",
+              title: "Live",
+            },
+            {
+              key: "ended",
+              title: "Ended",
+            },
+            {
+              key: "upcoming",
+              title: "Upcoming",
+            },
+            {
+              key: "past",
+              title: "Past",
+            },
+            ...(isAdmin
+              ? [
+                  {
+                    key: "cancelled",
+                    title: "Cancelled",
+                  },
+                ]
+              : []),
+          ]}
+        >
+          {(tab) => <Tab title={tab.title} key={tab.key} />}
+
+          {/* <Tab title="Ended" key="ended" />
           <Tab title="Upcoming" key="upcoming" />
 
           <Tab title="Past" key="past" />
-          {isAdmin && <Tab title="Cancelled" key="cancelled" />}
+          {isAdmin && <Tab title="Cancelled" key="cancelled" />} */}
         </Tabs>
-        {/* <Select
-          value="all"
-          label="Type"
-          variant="bordered"
-          className="max-w-xs"
-          selectedKeys={filter}
-          onSelectionChange={setFilter}
-          items={[{ value: "all", label: "All" }, ...filters]}
-        >
-          {(filter) => (
-            <SelectItem className="bg-background" key={filter.value}>
-              {filter.label}
-            </SelectItem>
+        <div className="flex flex-col gap-2">
+          {filters?.length && (
+            <Select
+              value="all"
+              label="Entry"
+              variant="bordered"
+              className="max-w-[200px]"
+              selectedKeys={filter}
+              onSelectionChange={(filter) => setFilter(filter as Set<string>)}
+              items={filters}
+            >
+              {(filter) => (
+                <SelectItem className="bg-background" key={filter.value!}>
+                  {filter.label}
+                </SelectItem>
+              )}
+            </Select>
           )}
-        </Select> */}
+          <Tabs selectedKey={onlyMine ? "mine" : "all"} onSelectionChange={(key) => setOnlyMine(key === "mine")}>
+            <Tab key="mine" title="Only mine" />
+            <Tab key="all" title="All" />
+          </Tabs>
+        </div>
+        {/* <Switch isSelected={onlyMine} onValueChange={setOnlyMine} /> */}
       </div>
       {tab === "live" && (
         <Section

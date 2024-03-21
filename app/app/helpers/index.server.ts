@@ -35,8 +35,6 @@ export async function getProgramAccounts(
     ],
   })
 
-  console.log(data.result)
-
   return await Promise.all(
     data.result.map(async (item: any) => {
       const encoded = Buffer.from(item.account.data[0], "base64")
@@ -51,7 +49,8 @@ export async function getProgramAccounts(
 export async function getMultipleAccounts(
   addresses: anchor.web3.PublicKey[],
   type: string,
-  program: anchor.Program<any>
+  program: anchor.Program<any>,
+  decode: boolean = true
 ) {
   const { data } = await axios.post(process.env.RPC_HOST!, {
     jsonrpc: "2.0",
@@ -66,8 +65,12 @@ export async function getMultipleAccounts(
     ],
   })
 
+  if (!decode) {
+    return data.result.value.map((v: any) => (v ? Buffer.from(v.data[0], "base64") : null))
+  }
+
   return await Promise.all(
-    data.result.value.map(async (item: any, index: number) => {
+    data.result.value.map(async (item: any) => {
       if (!item) {
         return null
       }
