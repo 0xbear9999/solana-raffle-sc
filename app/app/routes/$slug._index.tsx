@@ -159,8 +159,13 @@ export default function Raffles() {
       {tab === "ended" && (
         <Section
           label="Ended"
-          raffles={orderBy([...(grouped[RaffleState.ended] || []), ...(grouped[RaffleState.drawn] || [])], (raffle) =>
-            raffle.account.endTime.toNumber()
+          raffles={orderBy(
+            [
+              ...(grouped[RaffleState.ended] || []),
+              ...(grouped[RaffleState.drawn] || []),
+              ...(grouped[RaffleState.awaitingRandomness] || []),
+            ],
+            (raffle) => raffle.account.endTime.toNumber()
           )}
         />
       )}
