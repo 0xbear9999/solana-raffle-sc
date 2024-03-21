@@ -97,6 +97,7 @@ import { BackArrow } from "~/components/BackArrow"
 import { getAccount } from "~/helpers/index.server"
 import { BN } from "bn.js"
 import { Prize } from "~/components/Prize"
+import { CopyAddress } from "~/components/CopyAddress"
 
 type TicketType = "nft" | "token" | "sol"
 
@@ -128,7 +129,6 @@ type Entrant = {
   wallet: string
   tickets: number
   chance: string
-  winner: ReactElement | null
 }
 
 export default function SingleRaffle() {
@@ -220,10 +220,9 @@ export default function SingleRaffle() {
         const chance = (tickets.length / (entrants?.total || 0)) * 100
         return {
           key,
-          wallet: shorten(key) || "",
+          wallet: key || "",
           tickets: tickets.length,
           chance: `${chance === Infinity ? "100" : (chance > 100 ? 100 : chance).toLocaleString()}%`,
-          winner: winner === key ? <SparklesIcon className="text-yellow-500" /> : null,
         }
       })
 
@@ -237,7 +236,11 @@ export default function SingleRaffle() {
         program.provider.connection.removeAccountChangeListener(id)
       }
     }
-  }, [raffle.account.entrants.toBase58(), winner])
+  }, [raffle.account.entrants.toBase58()])
+
+  useEffect(() => {
+    console.log({ winner })
+  }, [winner])
 
   const program = useRaffle()
 
@@ -698,8 +701,6 @@ export default function SingleRaffle() {
 
   const collectionMetadata = digitalAsset?.grouping?.find((g) => g.group_key === "collection")?.collection_metadata
 
-  console.log(digitalAsset)
-
   return (
     <div className="flex flex-col gap-3 mt-10">
       {showConfetti && (
@@ -760,14 +761,26 @@ export default function SingleRaffle() {
                     items={orderBy(entrantsGrouped, (item) => item.tickets, "desc").slice((page - 1) * 10, page * 10)}
                   >
                     {(item) => {
+                      const isWinner = winner === item.key
                       return (
                         <TableRow key={item.key}>
                           {(columnKey) => (
                             <TableCell
                               key={columnKey}
-                              className={cn({ "font-bold": !!item.winner, "text-yellow-500": !!item.winner })}
+                              className={cn({ "font-bold": !!isWinner, "text-yellow-500": !!isWinner })}
                             >
-                              {item[columnKey as keyof object]}
+                              {columnKey === "wallet" ? (
+                                <p className="flex gap-2">
+                                  {isWinner ? (
+                                    <SparklesIcon className="text-yellow-500 w-6" />
+                                  ) : (
+                                    <div className="w-6" />
+                                  )}
+                                  <CopyAddress>{item[columnKey as keyof object]}</CopyAddress>
+                                </p>
+                              ) : (
+                                item[columnKey as keyof object]
+                              )}
                             </TableCell>
                           )}
                         </TableRow>

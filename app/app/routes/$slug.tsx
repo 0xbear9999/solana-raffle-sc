@@ -22,7 +22,7 @@ import { Popover } from "~/components/Popover"
 import { useUmi } from "~/context/umi"
 
 export const meta: MetaFunction = ({ data }: { data: any }) => {
-  return [{ title: `${data.name} // RAFFLE` }]
+  return [{ title: `${data.name ? data.name + " " : ""} // RAFFLE` }]
 }
 
 export const loader: LoaderFunction = async ({ params }) => {
