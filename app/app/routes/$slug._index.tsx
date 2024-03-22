@@ -16,6 +16,7 @@ import {
   Switch,
   Tab,
   Tabs,
+  Link as NextUiLink,
 } from "@nextui-org/react"
 import { LoaderFunction, json } from "@vercel/remix"
 import { Link, useLoaderData, useOutletContext } from "@remix-run/react"
@@ -143,8 +144,9 @@ export default function Raffles() {
   )
 
   const isAdmin =
-    wallet.publicKey?.toBase58() === raffler?.account.authority.toBase58() ||
-    wallet.publicKey?.toBase58() === adminWallet
+    wallet.publicKey &&
+    (wallet.publicKey?.toBase58() === raffler?.account.authority.toBase58() ||
+      wallet.publicKey?.toBase58() === adminWallet)
 
   useEffect(() => {
     ;(async () => {
@@ -227,7 +229,7 @@ export default function Raffles() {
             <Select
               value="all"
               label="Entry"
-              variant="bordered"
+              variant="flat"
               className="max-w-[200px]"
               selectedKeys={filter}
               onSelectionChange={(filter) => setFilter(filter as Set<string>)}
@@ -329,6 +331,21 @@ function Raffle({
   const [raffleState, setRaffleState] = useState<RaffleState>(RaffleState.inProgress)
 
   useEffect(() => {
+    async function syncRaffle() {
+      const raffle = await program.account.raffle.fetch(initialRaffle.publicKey)
+      setRaffle({
+        publicKey: initialRaffle.publicKey,
+        account: raffle,
+      })
+    }
+    const id = program.provider.connection.onAccountChange(initialRaffle.publicKey, syncRaffle)
+
+    return () => {
+      program.provider.connection.removeAccountChangeListener(id)
+    }
+  }, [initialRaffle.publicKey.toBase58()])
+
+  useEffect(() => {
     setRaffle(initialRaffle)
   }, [initialRaffle])
 
@@ -401,6 +418,10 @@ function Raffle({
     }
   }, [raffle.account.startTime, raffle.account.endTime, entrants])
 
+  function setMax() {
+    setNumTickets("320")
+  }
+
   return (
     <Card>
       <Link to={`${raffle.publicKey.toBase58()}`}>
@@ -464,6 +485,12 @@ function Raffle({
                 labelPlacement="outside"
                 min={1}
                 step={1}
+                variant="bordered"
+                endContent={
+                  <NextUiLink href="#" onClick={setMax}>
+                    Max
+                  </NextUiLink>
+                }
               />
             )}
 

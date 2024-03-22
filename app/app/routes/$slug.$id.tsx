@@ -37,10 +37,10 @@ import {
   Pagination,
   Accordion,
   AccordionItem,
-  Link,
+  Link as NextUILink,
 } from "@nextui-org/react"
 
-import { useLoaderData, useNavigate, useOutletContext } from "@remix-run/react"
+import { Link, useLoaderData, useNavigate, useOutletContext } from "@remix-run/react"
 import { DAS } from "helius-sdk"
 import _, { orderBy } from "lodash"
 import { ReactElement, useEffect, useRef, useState } from "react"
@@ -132,7 +132,6 @@ type Entrant = {
 }
 
 export default function SingleRaffle() {
-  const [prizeToken, setPrizeToken] = useState<DigitalAssetWithToken | null>(null)
   const [showConfetti, setShowConfetti] = useState(false)
   const interval = useRef<ReturnType<typeof setInterval>>()
   const { digitalAssets, fetching } = useDigitalAssets()
@@ -148,14 +147,47 @@ export default function SingleRaffle() {
   const [entrants, setEntrants] = useState(data.entrants)
   const [raffleState, setRaffleState] = useState<RaffleState>(RaffleState.inProgress)
   const { feeLevel } = usePriorityFees()
-  const raffler = useOutletContext<RafflerWithPublicKey>()
+  const [raffler, setRaffler] = useState(useOutletContext<RafflerWithPublicKey>())
   const [loading, setLoading] = useState(false)
   const [entrantsGrouped, setEntrantsGrouped] = useState<Entrant[]>([])
   const [modalShowing, setModalShowing] = useState(false)
   const [selectedNft, setSelectedNft] = useState<DAS.GetAssetResponse | null>(null)
   const [page, setPage] = useState(1)
+  const [entryDa, setEntryDa] = useState<TokenWithTokenInfo | null>(null)
   const [winner, setWinner] = useState<string | null>(null)
   const wallet = useWallet()
+
+  useEffect(() => {
+    async function syncRaffler() {
+      const raffler = await program.account.raffler.fetch(raffle.account.raffler)
+      console.log({ raffler })
+      setRaffler({
+        publicKey: raffle.account.raffler,
+        account: raffler,
+      })
+    }
+    const id = program.provider.connection.onAccountChange(raffle.account.raffler, syncRaffler)
+    syncRaffler()
+    return () => {
+      program.provider.connection.removeAccountChangeListener(id)
+    }
+  }, [raffle.account.raffler.toBase58()])
+
+  useEffect(() => {
+    if (!raffle.account.paymentType.token?.tokenMint) {
+      setEntryDa(null)
+      return
+    }
+
+    ;(async () => {
+      const {
+        data: { digitalAsset },
+      } = await axios.get<{ digitalAsset: TokenWithTokenInfo }>(
+        `/api/get-nft/${raffle.account.paymentType.token?.tokenMint || raffle.account.paymentType.nft?.collection}`
+      )
+      setEntryDa(digitalAsset)
+    })()
+  }, [raffle.account.paymentType.token?.tokenMint])
 
   useEffect(() => {
     ;(async () => {
@@ -722,8 +754,15 @@ export default function SingleRaffle() {
           />
         </div>
       )}
-
-      <BackArrow label="All raffles" />
+      <div className="flex justify-between items-center">
+        <BackArrow label="All raffles" />
+        <p className="font-bold">
+          Raffled by:{" "}
+          <Link to={`/${raffler?.account.slug}`}>
+            <NextUILink>{raffler?.account.name}</NextUILink>
+          </Link>
+        </p>
+      </div>
       <div className="flex flex-col-reverse lg:flex-row gap-10">
         <div className="lg:w-1/3 w-full">
           <Card>
@@ -735,11 +774,31 @@ export default function SingleRaffle() {
           <CardBody className="flex flex-col gap-3 overflow-visible">
             <div className="flex justify-between gap-3 items-center">
               <h2 className="text-2xl font-bold">
-                {raffle.account.prizeType.nft
-                  ? digitalAsset?.content?.metadata.name || "Unnamed NFT"
-                  : prizeToken?.metadata.name || prizeToken?.metadata.symbol || "Unnamed token"}
+                {(
+                  <NextUILink
+                    href={`https://www.tensor.trade/item/${digitalAsset?.id}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-2xl"
+                  >
+                    {digitalAsset?.content?.metadata.name}
+                  </NextUILink>
+                ) || (raffle.account.prizeType.nft ? "Unnamed NFT" : "Unnamed token")}
               </h2>
-              <h3 className="font-bold uppercase">{collectionMetadata?.name}</h3>
+              {raffle.account.prizeType.nft &&
+                collectionMetadata?.name &&
+                digitalAsset?.grouping?.find((g) => g.group_key === "collection") && (
+                  <NextUILink
+                    className="font-bold uppercase"
+                    href={`https://tensor.trade/trade/${
+                      digitalAsset?.grouping?.find((g) => g.group_key === "collection")?.group_value
+                    }`}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    {collectionMetadata.name}
+                  </NextUILink>
+                )}
             </div>
             {entrantsGrouped.length ? (
               <div className="flex flex-col gap-2 items-center">
@@ -755,16 +814,29 @@ export default function SingleRaffle() {
                     {(column) => <TableColumn key={column.key}>{column.label}</TableColumn>}
                   </TableHeader>
                   <TableBody
-                    items={orderBy(entrantsGrouped, (item) => item.tickets, "desc").slice((page - 1) * 10, page * 10)}
+                    items={orderBy(
+                      entrantsGrouped,
+                      [
+                        (item) => winner === item.key,
+                        (item) => item.key === wallet.publicKey?.toBase58(),
+                        (item) => item.tickets,
+                      ],
+                      ["desc", "desc", "desc"]
+                    ).slice((page - 1) * 5, page * 5)}
                   >
                     {(item) => {
                       const isWinner = winner === item.key
+                      const isMe = item.key === wallet.publicKey?.toBase58()
                       return (
                         <TableRow key={item.key}>
                           {(columnKey) => (
                             <TableCell
                               key={columnKey}
-                              className={cn({ "font-bold": !!isWinner, "text-yellow-500": !!isWinner })}
+                              className={cn({
+                                "font-bold": isWinner || isMe,
+                                "text-yellow-500": !!isWinner,
+                                "text-primary": !isWinner && isMe,
+                              })}
                             >
                               {columnKey === "wallet" ? (
                                 <p className="flex gap-2">
@@ -785,9 +857,9 @@ export default function SingleRaffle() {
                     }}
                   </TableBody>
                 </Table>
-                {entrantsGrouped.length > 10 && (
+                {entrantsGrouped.length > 5 && (
                   <Pagination
-                    total={Math.ceil(entrantsGrouped.length / 10)}
+                    total={Math.ceil(entrantsGrouped.length / 5)}
                     color="primary"
                     page={page}
                     onChange={setPage}
@@ -811,14 +883,14 @@ export default function SingleRaffle() {
                           content={
                             <p>
                               // RAFFLE uses the{" "}
-                              <Link
+                              <NextUILink
                                 href="https://crates.io/crates/solana-randomness-service"
                                 target="_blank"
                                 rel="noreferrer"
                                 className="text-xs"
                               >
                                 Solana Randomness Service
-                              </Link>{" "}
+                              </NextUILink>{" "}
                               to ensure decentralized and fair raffles. SRS uses a Switchboard SGX enabled oracle to
                               provide randomness to any Solana program using a callback instruction. This ensures anyone
                               can settle a raffle at any time with no ability to influence the results.
@@ -846,13 +918,32 @@ export default function SingleRaffle() {
                 </div>
               ) : (
                 <div className="flex items-end justify-start h-full">
-                  <div>
-                    <p className="text-xs font-bold uppercase">Ends in</p>
-                    {(entrants?.total || 0) < (entrants?.max || 0) ? (
-                      <Countdown until={raffle.account.endTime.toNumber()} className="text-xl" />
-                    ) : (
-                      <p className="text-xl">ENDED</p>
+                  <div className="flex flex-col gap-3">
+                    {entryDa && (
+                      <p className="font-bold text-xl">
+                        Ticket price:{" "}
+                        <span className="text-primary">
+                          {raffle.account.paymentType.token ? (
+                            <>
+                              {raffle.account.paymentType.token.ticketPrice.toNumber() /
+                                Math.pow(10, entryDa.token_info.decimals)}{" "}
+                              {entryDa?.content?.metadata.symbol || entryDa.token_info.symbol}
+                            </>
+                          ) : (
+                            <>1 {entryDa?.content?.metadata.name}</>
+                          )}
+                        </span>
+                      </p>
                     )}
+
+                    <div>
+                      <p className="text-xs font-bold uppercase">Ends in</p>
+                      {(entrants?.total || 0) < (entrants?.max || 0) ? (
+                        <Countdown until={raffle.account.endTime.toNumber()} className="text-xl" />
+                      ) : (
+                        <p className="text-xl">ENDED</p>
+                      )}
+                    </div>
                   </div>
                 </div>
               )}

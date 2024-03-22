@@ -10,11 +10,9 @@ import { useUmi } from "~/context/umi"
 import { Card, CardBody, Image } from "@nextui-org/react"
 import { RafflerWithPublicKey, Staker, StakerWithPublicKey } from "~/types/types"
 import { useStake } from "~/context/stake"
-import { PlusCircleIcon } from "@heroicons/react/24/outline"
 import { getProgramAccounts } from "~/helpers/index.server"
 import _ from "lodash"
 import { Title } from "~/components/Title"
-import { CreateRaffle } from "~/components/CreateRaffle"
 
 export const loader: LoaderFunction = async () => {
   const rafflers: RafflerWithPublicKey[] = await getProgramAccounts(raffleProgram, "raffler", undefined, true)
@@ -60,7 +58,7 @@ export default function Index() {
           </Card>
         </Link>
         {rafflers.map((raffler: RafflerWithPublicKey) => (
-          <Raffler raffler={raffler} />
+          <Raffler raffler={raffler} key={raffler.publicKey.toBase58()} />
         ))}
       </div>
     </div>
@@ -83,12 +81,19 @@ function Raffler({ raffler }: { raffler: RafflerWithPublicKey }) {
     })()
   }, [raffler.account.slug])
 
+  const image =
+    raffler.account.logo && raffler.account.logo !== "undefined?ext=undefined"
+      ? `https://arweave.net/${raffler.account.logo}`
+      : staker && staker.theme.logo !== null
+      ? staker.theme.logos[staker.theme.logo]
+      : null
+
   return (
     <Link to={`/${raffler.account.slug}`}>
       <Card className="h-40">
-        {staker && staker.theme.logo !== null ? (
+        {image ? (
           <div className="h-40 flex items-center justify-center">
-            <img src={staker.theme.logos[staker.theme.logo]} className="p-10 max-h-full max-w-full" />
+            <img src={image} className="p-10 max-h-full max-w-full" />
           </div>
         ) : (
           <CardBody className="flex items-center justify-center">{raffler.account.name}</CardBody>

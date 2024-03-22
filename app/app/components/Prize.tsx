@@ -33,35 +33,21 @@ export function Prize({
 }) {
   const wallet = useWallet()
   const umi = useUmi()
-  const [digitalAsset, setDigitalAsset] = useState<DAS.GetAssetResponse | null>(null)
-  const [prizeToken, setPrizeToken] = useState<TokenWithTokenInfo | null>(null)
+  const [digitalAsset, setDigitalAsset] = useState<TokenWithTokenInfo | null>(null)
 
   useEffect(() => {
     if (!raffle.account.prize) {
       setDigitalAsset(null)
-      setPrizeToken(null)
       return
     }
 
     ;(async () => {
-      if (raffle.account.prizeType.nft) {
-        const { data } = await axios.get<{ digitalAsset: DAS.GetAssetResponse }>(
-          `/api/get-nft/${raffle.account.prize.toBase58()}`
-        )
+      const { data } = await axios.get<{ digitalAsset: TokenWithTokenInfo }>(
+        `/api/get-nft/${raffle.account.prize.toBase58()}`
+      )
+      console.log(data)
 
-        setDigitalAsset(data.digitalAsset)
-        setPrizeToken(null)
-      } else {
-        try {
-          const { data } = await axios.get<{ digitalAssets: TokenWithTokenInfo[] }>(
-            `/api/get-fungibles/${raffle.publicKey.toBase58()}`
-          )
-          const token = data.digitalAssets.find((da) => da.id === raffle.account.prize.toBase58()) || null
-          setPrizeToken(token)
-        } catch {
-          console.log("error looking up token")
-        }
-      }
+      setDigitalAsset(data.digitalAsset)
     })()
   }, [raffle.account.prize.toBase58()])
 
@@ -71,11 +57,11 @@ export function Prize({
         <>{digitalAsset ? <Image src={imageCdn(digitalAsset.content?.links?.image!)} /> : <CircularProgress />}</>
       ) : (
         <Card className="w-full h-full">
-          {prizeToken ? (
+          {digitalAsset ? (
             <div
               className="w-full h-full flex justify-center items-center"
               style={{
-                backgroundImage: `url(${imageCdn(prizeToken?.content?.links?.image!)}`,
+                backgroundImage: `url(${imageCdn(digitalAsset?.content?.links?.image!)}`,
                 backgroundSize: "contain",
                 backgroundRepeat: "no-repeat",
               }}
@@ -84,14 +70,19 @@ export function Prize({
                 {(
                   Number(
                     (BigInt(raffle.account.prizeType.token.amount.toString()) * 1000n) /
-                      BigInt(Math.pow(10, prizeToken.token_info.decimals))
+                      BigInt(Math.pow(10, digitalAsset.token_info.decimals))
                   ) / 1000
                 ).toLocaleString()}{" "}
-                {prizeToken.token_info.symbol || "$TOKEN"}
+                {digitalAsset.token_info.symbol || "$TOKEN"}
               </p>
-              {prizeToken.token_info.price_info.total_price && (
+              {digitalAsset.token_info.price_info.price_per_token && (
                 <Chip className="absolute bottom-5 left-5" color="primary">
-                  ${prizeToken.token_info.price_info.total_price.toLocaleString()}
+                  $
+                  {(
+                    (digitalAsset.token_info.price_info.price_per_token *
+                      raffle.account.prizeType.token.amount.toNumber()) /
+                    Math.pow(10, digitalAsset.token_info.decimals)
+                  ).toLocaleString()}
                 </Chip>
               )}
             </div>
