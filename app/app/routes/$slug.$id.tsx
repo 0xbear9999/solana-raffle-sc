@@ -383,7 +383,9 @@ export default function SingleRaffle() {
                 sysvarInstructions: anchor.web3.SYSVAR_INSTRUCTIONS_PUBKEY,
                 authority: raffler.account.authority,
                 winner,
-                authRules: prizeDa ? unwrapOptionRecursively(prizeDa.metadata.programmableConfig)?.ruleSet : null,
+                authRules: prizeDa
+                  ? unwrapOptionRecursively(prizeDa.metadata.programmableConfig)?.ruleSet || null
+                  : null,
                 authRulesProgram: isPnft ? MPL_TOKEN_AUTH_RULES_PROGRAM_ID : null,
               })
               .remainingAccounts(remainingAccounts)
