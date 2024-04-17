@@ -136,6 +136,10 @@ pub mod raffle {
     pub fn toggle_active(ctx: Context<ToggleActive>, is_active: bool) -> Result<()> {
         toggle_active_handler(ctx, is_active)
     }
+
+    pub fn withdraw_rent(ctx: Context<WithdrawRent>) -> Result<()> {
+        withdraw_rent_handler(ctx)
+    }
 }
 
 #[error_code]

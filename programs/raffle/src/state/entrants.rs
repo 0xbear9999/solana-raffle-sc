@@ -1,4 +1,7 @@
-use std::cell::{Ref, RefMut};
+use std::{
+    cell::{Ref, RefMut},
+    io::{Read, Write},
+};
 
 use anchor_lang::prelude::*;
 
@@ -14,6 +17,33 @@ pub struct Entrants {
 
 impl Entrants {
     pub const BASE_SIZE: usize = 8 + 4 + 4;
+
+    pub fn get_all_entrants(&mut self, mut entrants_data: RefMut<&mut [u8]>, address: Pubkey) {
+        let mut entrants_slice = &mut entrants_data[Entrants::BASE_SIZE..];
+
+        msg!("len before {}", entrants_slice.len());
+        let mut chunked: Vec<&[u8]> = entrants_slice.chunks(32).collect();
+        chunked.retain(|item| Pubkey::try_from(&**item).unwrap() == address);
+        entrants_slice.write_all(&chunked.concat());
+
+        // msg!("len after {}", entrants_slice.len());
+
+        // if let Some(index) = chunked
+        //     .iter()
+        //     .position(|item| Pubkey::try_from(&**item).unwrap() == address)
+        // {
+        //     chunked._remove(index);
+        // }
+
+        // msg!("LENGTH AFTER {}", chunked.len())
+
+        // if let Some(index) = entrants_slice
+        //     .chunks_mut(32)
+        //     .position(|i| indicies.contains(i))
+        // {
+        //     entrants_slice.swap_remove(index);
+        // }
+    }
 
     pub fn get_entrant(entrants_data: Ref<&mut [u8]>, index: usize) -> Pubkey {
         let start_index = Entrants::BASE_SIZE + 32 * index;

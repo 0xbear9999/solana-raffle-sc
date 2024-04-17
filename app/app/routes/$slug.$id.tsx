@@ -8,12 +8,20 @@ import {
   fetchDigitalAssetWithToken,
 } from "@metaplex-foundation/mpl-token-metadata"
 import { RandomnessService } from "@switchboard-xyz/solana-randomness-service"
-import { fetchMint, getSysvar, setComputeUnitLimit, setComputeUnitPrice } from "@metaplex-foundation/mpl-toolbox"
+import {
+  fetchMint,
+  getSysvar,
+  setComputeUnitLimit,
+  setComputeUnitPrice,
+  transferSol,
+} from "@metaplex-foundation/mpl-toolbox"
 import ConfettiExplosion from "react-confetti-explosion"
 import {
   PublicKey,
   generateSigner,
   publicKey,
+  signAllTransactions,
+  sol,
   transactionBuilder,
   unwrapOptionRecursively,
 } from "@metaplex-foundation/umi"
@@ -42,7 +50,7 @@ import {
 
 import { Link, useLoaderData, useNavigate, useOutletContext } from "@remix-run/react"
 import { DAS } from "helius-sdk"
-import _, { orderBy } from "lodash"
+import _, { groupBy, mapValues, orderBy, reduce } from "lodash"
 import { ReactElement, useEffect, useRef, useState } from "react"
 import toast from "react-hot-toast"
 import { NftSelector, NftSelectorModal } from "~/components/NftSelector"
@@ -88,7 +96,7 @@ import {
 } from "~/helpers"
 import axios from "axios"
 import { useWallet } from "@solana/wallet-adapter-react"
-import { PriorityFees, adminWallet } from "~/constants"
+import { ENTRY_RENT, PriorityFees, adminWallet, feesWallet } from "~/constants"
 import { Countdown } from "~/components/Countdown"
 import { buyTickets } from "~/helpers/txs"
 import { getRaffleState } from "~/helpers/raffle-state"
@@ -98,6 +106,7 @@ import { getAccount } from "~/helpers/index.server"
 import { BN } from "bn.js"
 import { Prize } from "~/components/Prize"
 import { CopyAddress } from "~/components/CopyAddress"
+import { LAMPORTS_PER_SOL } from "@solana/web3.js"
 
 type TicketType = "nft" | "token" | "sol"
 
@@ -404,6 +413,46 @@ export default function SingleRaffle() {
     }
   }
 
+  async function refundRent() {
+    try {
+      setLoading(true)
+      const promise = Promise.resolve().then(async () => {
+        const { data } = await axios.get(raffle.account.uri)
+        const entrantsArray = dataToPks(new Uint8Array((Object.values(data) as any).slice(8 + 4 + 4)))
+        const grouped = mapValues(
+          groupBy(entrantsArray, (item) => item),
+          (item) => (item.length * Number(ENTRY_RENT)) / LAMPORTS_PER_SOL
+        )
+        const tx = transactionBuilder().add(
+          Object.keys(grouped).map((key) => {
+            return transferSol(umi, {
+              source: umi.identity,
+              destination: publicKey(key),
+              amount: sol(grouped[key]),
+            })
+          })
+        )
+
+        const { chunks, txFee } = await packTx(umi, tx, feeLevel)
+        const built = await Promise.all(chunks.map((c) => c.buildWithLatestBlockhash(umi)))
+        const signed = await umi.identity.signAllTransactions(built)
+        return await sendAllTxsWithRetries(umi, program.provider.connection, signed, txFee ? 1 : 0)
+      })
+
+      toast.promise(promise, {
+        loading: "Refunding entry rent",
+        success: "Refunded successfully",
+        error: (err) => displayErrorFromLog(err, "Error refunding"),
+      })
+
+      await promise
+    } catch (err: any) {
+      console.error(err)
+    } finally {
+      setLoading(false)
+    }
+  }
+
   async function deleteRaffle() {
     try {
       setLoading(true)
@@ -474,9 +523,9 @@ export default function SingleRaffle() {
       const promise = Promise.resolve().then(async () => {
         const raffleAcc = await raffleProgram.account.raffle.fetch(raffle.publicKey)
 
-        if (raffle.account.uri) {
-          throw new Error("Randomness has already been requested for this raffle, please check back soon.")
-        }
+        // if (raffle.account.uri) {
+        //   throw new Error("Randomness has already been requested for this raffle, please check back soon.")
+        // }
         const entrantsAcc = await umi.rpc.getAccount(fromWeb3JsPublicKey(raffle.account.entrants))
         if (!entrantsAcc.exists) {
           throw new Error("Entrants account not found")
@@ -1013,7 +1062,7 @@ export default function SingleRaffle() {
                   </div>
                 </div>
               )}
-              {raffleState === RaffleState.ended && entrants.total > 0 && (
+              {entrants.total > 0 && (
                 <Button color="primary" onClick={draw}>
                   Draw winners
                 </Button>
@@ -1021,6 +1070,12 @@ export default function SingleRaffle() {
               {raffleState === RaffleState.drawn && (isWinner || isAdmin) && (
                 <Button color="primary" onClick={claim}>
                   {isWinner ? "Claim prize" : "Send prize"}
+                </Button>
+              )}
+
+              {raffleState === RaffleState.claimed && feesWallet === wallet.publicKey?.toBase58() && (
+                <Button color="primary" onClick={refundRent}>
+                  Refund rent
                 </Button>
               )}
             </div>

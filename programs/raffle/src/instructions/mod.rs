@@ -1,3 +1,4 @@
+pub use withdraw_rent::*;
 pub use buy_ticket_burn_nft::*;
 pub use buy_ticket_send_nft::*;
 pub use buy_tickets_token::*;
@@ -35,3 +36,4 @@ pub mod set_slugs;
 pub mod toggle_active;
 pub mod update_program_config;
 pub mod update_raffler;
+pub mod withdraw_rent;
