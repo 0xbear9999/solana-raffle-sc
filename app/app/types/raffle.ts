@@ -1328,6 +1328,32 @@ export type Raffle = {
           "type": "bool"
         }
       ]
+    },
+    {
+      "name": "withdrawRent",
+      "accounts": [
+        {
+          "name": "raffle",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "raffler",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "entrants",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "claimer",
+          "isMut": false,
+          "isSigner": true
+        }
+      ],
+      "args": []
     }
   ],
   "accounts": [
@@ -3283,6 +3309,32 @@ export const IDL: Raffle = {
           "type": "bool"
         }
       ]
+    },
+    {
+      "name": "withdrawRent",
+      "accounts": [
+        {
+          "name": "raffle",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "raffler",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "entrants",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "claimer",
+          "isMut": false,
+          "isSigner": true
+        }
+      ],
+      "args": []
     }
   ],
   "accounts": [
