@@ -525,9 +525,9 @@ export default function SingleRaffle() {
       const promise = Promise.resolve().then(async () => {
         const raffleAcc = await raffleProgram.account.raffle.fetch(raffle.publicKey)
 
-        // if (raffle.account.uri) {
-        //   throw new Error("Randomness has already been requested for this raffle, please check back soon.")
-        // }
+        if (raffle.account.uri) {
+          throw new Error("Randomness has already been requested for this raffle, please check back soon.")
+        }
         const entrantsAcc = await umi.rpc.getAccount(fromWeb3JsPublicKey(raffle.account.entrants))
         if (!entrantsAcc.exists) {
           throw new Error("Entrants account not found")
@@ -1064,7 +1064,7 @@ export default function SingleRaffle() {
                   </div>
                 </div>
               )}
-              {entrants.total > 0 && (
+              {entrants.total > 0 && raffleState === RaffleState.ended && (
                 <Button color="primary" onClick={draw}>
                   Draw winners
                 </Button>
