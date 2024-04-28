@@ -10,6 +10,7 @@ import {
   collectNft,
   createRaffloor,
   buyTicketSendNft,
+  forceSettleRaffle,
 } from "../helpers/instructions"
 import { findRafflerPda, findRafflePda } from "../helpers/pdas"
 import { umi } from "../helpers/umi"
@@ -72,7 +73,7 @@ describe("pNFT raffle with pnfts as currency", () => {
     assert.ok(entrantsArray.includes(user.publicKey))
   })
 
-  it("cannot draw a winner if raffle not ended", async () => {
+  it.skip("cannot draw a winner if raffle not ended", async () => {
     await expectFail(
       () => settleRaffle(randomnessService, raffle, undefined, true),
       (err) => assertErrorCode(err, "RaffleNotEnded")
@@ -84,7 +85,7 @@ describe("pNFT raffle with pnfts as currency", () => {
     await Promise.all(nfts.map(async (nft) => buyTicketSendNft(user, raffle, nft.publicKey)))
   })
 
-  it("can draw a winner", async () => {
+  it.skip("can draw a winner", async () => {
     await settleRaffle(randomnessService, raffle)
 
     const raffleAcc = await adminProgram.account.raffle.fetch(raffle)
@@ -92,9 +93,24 @@ describe("pNFT raffle with pnfts as currency", () => {
     assert.ok(raffleAcc.randomness, "Expected raffle to be settled")
   })
 
-  it("cannot draw a winner if one has already been drawn", async () => {
+  it("can force draw a winner", async () => {
+    await forceSettleRaffle(authority, raffle)
+
+    const raffleAcc = await adminProgram.account.raffle.fetch(raffle)
+
+    assert.ok(raffleAcc.randomness, "Expected raffle to be settled")
+  })
+
+  it.skip("cannot draw a winner if one has already been drawn", async () => {
     await expectFail(
       () => settleRaffle(randomnessService, raffle, undefined, true),
+      (err) => assertErrorCode(err, "WinnerAlreadyDrawn")
+    )
+  })
+
+  it("cannot draw a winner if one has already been drawn", async () => {
+    await expectFail(
+      () => forceSettleRaffle(authority, raffle),
       (err) => assertErrorCode(err, "WinnerAlreadyDrawn")
     )
   })

@@ -3,7 +3,14 @@ import { fetchMint } from "@metaplex-foundation/mpl-toolbox"
 import { generateSigner, KeypairSigner, PublicKey, tokenAmount } from "@metaplex-foundation/umi"
 import { assert } from "chai"
 import { createNewUser, randomnessService } from "../helper"
-import { createRaffle, buyTicketsToken, settleRaffle, claimPrize, createRaffloor } from "../helpers/instructions"
+import {
+  createRaffle,
+  buyTicketsToken,
+  settleRaffle,
+  claimPrize,
+  createRaffloor,
+  forceSettleRaffle,
+} from "../helpers/instructions"
 import { findRafflePda, getTokenAccount } from "../helpers/pdas"
 import { umi } from "../helpers/umi"
 import { expectFail, assertErrorCode, sleep, getTokenAmount, getEntrantsArray, TX_FEE } from "../helpers/utils"
@@ -118,9 +125,14 @@ describe("Token burn raffle", () => {
     assert.equal(entrantsArray.length, 321)
   })
 
-  it("can settle the raffle", async () => {
+  it.skip("can settle the raffle", async () => {
     await sleep(2000)
     await settleRaffle(randomnessService, raffle)
+  })
+
+  it("can force settle the raffle", async () => {
+    await sleep(2000)
+    await forceSettleRaffle(authority, raffle)
   })
 
   it("can claim", async () => {

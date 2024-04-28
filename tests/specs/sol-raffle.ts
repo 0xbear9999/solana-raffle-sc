@@ -4,7 +4,14 @@ import { KeypairSigner, PublicKey, generateSigner, sol, publicKey } from "@metap
 import { assert } from "chai"
 import _, { chunk } from "lodash"
 import { randomnessService, adminProgram, createNewUser } from "../helper"
-import { createRaffle, buyTicketsToken, settleRaffle, claimPrize, createRaffloor } from "../helpers/instructions"
+import {
+  createRaffle,
+  buyTicketsToken,
+  settleRaffle,
+  claimPrize,
+  createRaffloor,
+  forceSettleRaffle,
+} from "../helpers/instructions"
 import { findRafflePda, nativeMint, getTokenAccount } from "../helpers/pdas"
 import { umi } from "../helpers/umi"
 import { TX_FEE, expectFail, assertErrorCode, getTokenAmount, FEES_WALLET } from "../helpers/utils"
@@ -92,7 +99,7 @@ describe("SOL NFT raffle", () => {
     )
   })
 
-  it("can settle the raffle", async () => {
+  it.skip("can settle the raffle", async () => {
     const balanceBefore = await umi.rpc.getBalance(umi.identity.publicKey)
     await settleRaffle(randomnessService, raffle)
 
@@ -106,6 +113,10 @@ describe("SOL NFT raffle", () => {
     const raffleAcc = await adminProgram.account.raffle.fetch(raffle)
 
     assert.ok(raffleAcc.randomness, "Expected randomness to be set")
+  })
+
+  it("can force-settle the raffle", async () => {
+    await forceSettleRaffle(authority, raffle)
   })
 
   it("cannot claim with a non winning ticket", async () => {

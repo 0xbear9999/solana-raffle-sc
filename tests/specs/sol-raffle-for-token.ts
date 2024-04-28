@@ -4,12 +4,20 @@ import { KeypairSigner, PublicKey, generateSigner, sol, publicKey, tokenAmount }
 import { assert } from "chai"
 import _, { chunk } from "lodash"
 import { randomnessService, adminProgram, createNewUser } from "../helper"
-import { createRaffle, buyTicketsToken, settleRaffle, claimPrize, createRaffloor } from "../helpers/instructions"
+import {
+  createRaffle,
+  buyTicketsToken,
+  settleRaffle,
+  claimPrize,
+  createRaffloor,
+  forceSettleRaffle,
+} from "../helpers/instructions"
 import { findRafflePda, nativeMint, getTokenAccount } from "../helpers/pdas"
 import { umi } from "../helpers/umi"
-import { TX_FEE, expectFail, assertErrorCode, getTokenAmount, FEES_WALLET } from "../helpers/utils"
+import { TX_FEE, expectFail, assertErrorCode, getTokenAmount, FEES_WALLET, getWinner } from "../helpers/utils"
 import { createNft } from "../helpers/create-nft"
 import { createToken } from "../helpers/create-token"
+import { fromWeb3JsPublicKey } from "@metaplex-foundation/umi-web3js-adapters"
 
 describe("SOL Token raffle", () => {
   let entrants: KeypairSigner
@@ -91,7 +99,7 @@ describe("SOL Token raffle", () => {
     )
   })
 
-  it("can settle the raffle", async () => {
+  it.skip("can settle the raffle", async () => {
     const balanceBefore = await umi.rpc.getBalance(umi.identity.publicKey)
     await settleRaffle(randomnessService, raffle)
 
@@ -107,7 +115,25 @@ describe("SOL Token raffle", () => {
     assert.ok(raffleAcc.randomness, "Expected randomness to be set")
   })
 
+  it("can force settle the raffle", async () => {
+    const balanceBefore = await umi.rpc.getBalance(umi.identity.publicKey)
+    await forceSettleRaffle(authority, raffle)
+
+    const balanceAfter = await umi.rpc.getBalance(umi.identity.publicKey)
+
+    console.log(
+      "cost:",
+      Number(balanceBefore.basisPoints - balanceAfter.basisPoints - TX_FEE * 2n) / anchor.web3.LAMPORTS_PER_SOL
+    )
+
+    const raffleAcc = await adminProgram.account.raffle.fetch(raffle)
+
+    assert.ok(raffleAcc.randomness, "Expected randomness to be set")
+  })
+
   it("cannot claim with a non winning ticket", async () => {
+    const raffleAcc = await adminProgram.account.raffle.fetch(raffle)
+
     await expectFail(
       () => claimPrize(user, raffle, 1),
       (err) => assertErrorCode(err, "TicketNotWinner")

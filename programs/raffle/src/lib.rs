@@ -123,6 +123,10 @@ pub mod raffle {
         delete_raffler_handler(ctx)
     }
 
+    pub fn force_settle(ctx: Context<ForceSettle>, uri: Option<String>) -> Result<()> {
+        force_settle_handler(ctx, uri)
+    }
+
     pub fn update_raffler(
         ctx: Context<UpdateRaffler>,
         name: Option<String>,
@@ -248,4 +252,8 @@ pub enum RaffleError {
     BgTooLong,
     #[msg("Only the raffle admin or system admin can perform this action")]
     AdminOrSystemAdmin,
+    #[msg("Cannot be force drawn before being drawn")]
+    EntrantsNotStored,
+    #[msg("This raffle has ended")]
+    RaffleEnded,
 }

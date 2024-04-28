@@ -1248,6 +1248,39 @@ export type Raffle = {
       "args": []
     },
     {
+      "name": "forceSettle",
+      "accounts": [
+        {
+          "name": "raffler",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "raffle",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "recentBlockhashes",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "authority",
+          "isMut": false,
+          "isSigner": true
+        }
+      ],
+      "args": [
+        {
+          "name": "uri",
+          "type": {
+            "option": "string"
+          }
+        }
+      ]
+    },
+    {
       "name": "updateRaffler",
       "accounts": [
         {
@@ -1975,6 +2008,16 @@ export type Raffle = {
       "code": 6051,
       "name": "AdminOrSystemAdmin",
       "msg": "Only the raffle admin or system admin can perform this action"
+    },
+    {
+      "code": 6052,
+      "name": "EntrantsNotStored",
+      "msg": "Cannot be force drawn before being drawn"
+    },
+    {
+      "code": 6053,
+      "name": "RaffleEnded",
+      "msg": "This raffle has ended"
     }
   ]
 };
@@ -3229,6 +3272,39 @@ export const IDL: Raffle = {
       "args": []
     },
     {
+      "name": "forceSettle",
+      "accounts": [
+        {
+          "name": "raffler",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "raffle",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "recentBlockhashes",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "authority",
+          "isMut": false,
+          "isSigner": true
+        }
+      ],
+      "args": [
+        {
+          "name": "uri",
+          "type": {
+            "option": "string"
+          }
+        }
+      ]
+    },
+    {
       "name": "updateRaffler",
       "accounts": [
         {
@@ -3956,6 +4032,16 @@ export const IDL: Raffle = {
       "code": 6051,
       "name": "AdminOrSystemAdmin",
       "msg": "Only the raffle admin or system admin can perform this action"
+    },
+    {
+      "code": 6052,
+      "name": "EntrantsNotStored",
+      "msg": "Cannot be force drawn before being drawn"
+    },
+    {
+      "code": 6053,
+      "name": "RaffleEnded",
+      "msg": "This raffle has ended"
     }
   ]
 };

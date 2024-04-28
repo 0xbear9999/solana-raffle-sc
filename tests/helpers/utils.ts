@@ -9,6 +9,8 @@ import { safeFetchToken } from "@metaplex-foundation/mpl-toolbox"
 import { getTokenAccount } from "./pdas"
 import { createSignerFromKeypair } from "@metaplex-foundation/umi"
 import _ from "lodash"
+import { fromWeb3JsPublicKey } from "@metaplex-foundation/umi-web3js-adapters"
+import { Raffle } from "../../target/types/raffle"
 
 export const TX_FEE = 5000n
 export const MAX_REALLOC_SIZE = 10240
@@ -81,4 +83,13 @@ export async function getEntrantsArray(entrantsPk: PublicKey) {
   const acc = await umi.rpc.getAccount(entrantsPk)
   const data = acc.exists && acc.data.slice(8 + 4 + 4)
   return _.chunk(data, 32).map((arr) => publicKey(new Uint8Array(arr)))
+}
+
+export async function getWinner(program: anchor.Program<Raffle>, randomness: number[], entrants: PublicKey) {
+  const winnerRand = expandRandomness(randomness)
+  const entrantsAcc = await program.account.entrants.fetch(entrants)
+  const winnerIndex = winnerRand % entrantsAcc.total
+
+  const entrantsArray = await getEntrantsArray(entrants)
+  return [entrantsArray[winnerIndex], winnerIndex]
 }

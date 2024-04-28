@@ -44,7 +44,7 @@ pub struct ClaimPrize<'info> {
     )]
     pub raffle: Box<Account<'info, Raffle>>,
 
-    #[account(mut)]
+    #[account(mut, close = fees_wallet)]
     pub entrants: Box<Account<'info, Entrants>>,
 
     #[account( mut, address = FEES_WALLET )]

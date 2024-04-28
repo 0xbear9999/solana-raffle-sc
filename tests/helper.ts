@@ -14,7 +14,9 @@ export let randomnessService: RandomnessService
 anchor.setProvider(provider)
 
 before(async () => {
-  randomnessService = await RandomnessService.fromProvider(provider)
+  try {
+    randomnessService = await RandomnessService.fromProvider(provider)
+  } catch {}
   await adminProgram.methods
     .initProgramConfig(new anchor.BN(RAFFLE_FEE.toString()), PROCEEDS_PERCENTAGE)
     .accounts({

@@ -173,6 +173,10 @@ pub fn buy_tickets_token_handler(ctx: Context<BuyTicketsToken>, amount: u32) -> 
         )
     }
 
+    require!(raffle.uri.len() == 0, RaffleError::RaffleEnded);
+    require!(raffle.randomness.is_none(), RaffleError::RaffleEnded);
+    require!(!raffle.claimed, RaffleError::RaffleEnded);
+
     let amount_u64 = amount as u64;
 
     match raffle.payment_type {

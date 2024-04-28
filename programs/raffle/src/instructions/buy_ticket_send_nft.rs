@@ -192,6 +192,9 @@ pub fn buy_ticket_send_nft_handler(ctx: Context<BuyTicketSendNft>) -> Result<()>
         )
     }
 
+    require!(raffle.uri.len() == 0, RaffleError::RaffleEnded);
+    require!(raffle.randomness.is_none(), RaffleError::RaffleEnded);
+
     match raffle.payment_type {
         PaymentType::Token {
             token_mint: _,

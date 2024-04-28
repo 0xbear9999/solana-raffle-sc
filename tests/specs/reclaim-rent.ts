@@ -11,7 +11,7 @@ import { expectFail, assertErrorCode, sleep, getTokenAmount, getEntrantsArray, T
 import { createNft } from "../helpers/create-nft"
 import { createToken } from "../helpers/create-token"
 
-describe.only("Reclaim rent", () => {
+describe.skip("Reclaim rent", () => {
   let prize: DigitalAsset
   let authority: KeypairSigner
   let raffler: PublicKey

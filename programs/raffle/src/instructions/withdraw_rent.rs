@@ -1,6 +1,6 @@
 use anchor_lang::prelude::*;
 
-use crate::state::{entrants, Entrants, Raffle, Raffler};
+use crate::state::{Entrants, Raffle, Raffler};
 
 #[derive(Accounts)]
 pub struct WithdrawRent<'info> {

@@ -46,6 +46,11 @@ import {
   Accordion,
   AccordionItem,
   Link as NextUILink,
+  Modal,
+  ModalContent,
+  ModalHeader,
+  ModalBody,
+  ModalFooter,
 } from "@nextui-org/react"
 
 import { Link, useLoaderData, useNavigate, useOutletContext } from "@remix-run/react"
@@ -141,6 +146,7 @@ type Entrant = {
 }
 
 export default function SingleRaffle() {
+  const [forceDrawShowing, setForceDrawShowing] = useState(false)
   const [showConfetti, setShowConfetti] = useState(false)
   const interval = useRef<ReturnType<typeof setInterval>>()
   const { digitalAssets, fetching } = useDigitalAssets()
@@ -165,6 +171,10 @@ export default function SingleRaffle() {
   const [entryDa, setEntryDa] = useState<TokenWithTokenInfo | null>(null)
   const [winner, setWinner] = useState<string | null>(null)
   const wallet = useWallet()
+
+  function toggleForceDrawShowing() {
+    setForceDrawShowing(!forceDrawShowing)
+  }
 
   useEffect(() => {
     async function syncRaffler() {
@@ -758,6 +768,42 @@ export default function SingleRaffle() {
     }
   }
 
+  async function forceDraw() {
+    try {
+      setLoading(true)
+      const promise = Promise.resolve().then(async () => {
+        let tx = transactionBuilder().add({
+          instruction: fromWeb3JsInstruction(
+            await program.methods
+              .forceSettle(null)
+              .accounts({
+                raffle: raffle.publicKey,
+                raffler: raffle.account.raffler,
+                recentBlockhashes: getSysvar("recentBlockhashes"),
+              })
+              .instruction()
+          ),
+          bytesCreatedOnChain: 0,
+          signers: [umi.identity],
+        })
+
+        const { chunks, txFee } = await packTx(umi, tx, feeLevel)
+        const signed = await Promise.all(chunks.map((c) => c.buildAndSign(umi)))
+        return await sendAllTxsWithRetries(umi, program.provider.connection, signed, txFee ? 1 : 0)
+      })
+
+      toast.promise(promise, {
+        loading: "Force-drawing raffle",
+        success: "Raffle drawn",
+        error: (err) => displayErrorFromLog(err, "Error drawing raffle"),
+      })
+    } catch (err) {
+      console.log(err)
+    } finally {
+      setLoading(true)
+    }
+  }
+
   const isAdmin = wallet.publicKey?.toBase58() === raffler?.account.authority.toBase58()
   const isSystemAdmin = wallet.publicKey?.toBase58() === adminWallet
 
@@ -1069,6 +1115,11 @@ export default function SingleRaffle() {
                   Draw winners
                 </Button>
               )}
+              {raffleState === RaffleState.awaitingRandomness && isAdmin && (
+                <Button color="danger" onClick={toggleForceDrawShowing}>
+                  Force draw
+                </Button>
+              )}
               {raffleState === RaffleState.drawn && (isWinner || isAdmin) && (
                 <Button color="primary" onClick={claim}>
                   {isWinner ? "Claim prize" : "Send prize"}
@@ -1095,6 +1146,34 @@ export default function SingleRaffle() {
               )
             }
           />
+          <Modal
+            isOpen={forceDrawShowing}
+            onOpenChange={(open) => setForceDrawShowing(open)}
+            className="main-theme text-foreground"
+          >
+            <ModalContent>
+              {(onClose) => (
+                <>
+                  <ModalHeader className="flex flex-col gap-1">
+                    <h1 className="text-2xl">Force draw raffle?</h1>
+                  </ModalHeader>
+                  <ModalBody>
+                    <h2 className="text-2xl text-warning">Warning</h2>
+                    <p>
+                      Sometimes there can be a delay while awaiting randomness from Switchboard, if this is the case the
+                      project admin can force-draw a raffle using the recent blockhashes method.
+                    </p>
+                  </ModalBody>
+                  <ModalFooter>
+                    <Button onClick={onClose}>Cancel</Button>
+                    <Button onClick={forceDraw} color="danger">
+                      Force draw
+                    </Button>
+                  </ModalFooter>
+                </>
+              )}
+            </ModalContent>
+          </Modal>
         </Card>
       </div>
     </div>

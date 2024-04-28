@@ -289,6 +289,20 @@ export async function settleRaffle(
   }
 }
 
+export async function forceSettleRaffle(user: KeypairSigner, raffle: PublicKey) {
+  const program = programPaidBy(user)
+  const raffleAcc = await program.account.raffle.fetch(raffle)
+
+  await program.methods
+    .forceSettle("a/url")
+    .accounts({
+      raffle,
+      raffler: raffleAcc.raffler,
+      recentBlockhashes: getSysvar("recentBlockhashes"),
+    })
+    .rpc()
+}
+
 export async function claimPrize(user: KeypairSigner, raffle: PublicKey, ticketIndex?: number) {
   const program = programPaidBy(user)
   const raffleAcc = await program.account.raffle.fetch(raffle)
