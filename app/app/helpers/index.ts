@@ -221,7 +221,7 @@ export async function sendAllTxsWithRetries(
 
   await Promise.all(
     signed.map(async (tx) => {
-      const sig = await umi.rpc.sendTransaction(tx)
+      const sig = await umi.rpc.sendTransaction(tx, { skipPreflight: true })
       let resolved = false
       const confPromise = umi.rpc.confirmTransaction(sig, {
         strategy: {
@@ -234,7 +234,7 @@ export async function sendAllTxsWithRetries(
       while (blockheight < lastValidBlockHeight && !resolved) {
         try {
           console.log("Sending tx")
-          await umi.rpc.sendTransaction(tx)
+          await umi.rpc.sendTransaction(tx, { skipPreflight: true })
           await sleep(delay)
         } catch (err: any) {
           if (err.message.includes("This transaction has already been processed")) {
